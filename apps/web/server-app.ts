@@ -3,12 +3,71 @@ import { Hono } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 
 // Keep your existing ESM utils import (.js extension!)
-import {
-  generateCodeVerifier,
-  generateCodeChallenge,
-  buildAuthorizeUrl,
-  exchangeCodeForToken,
-} from './src/utils/spotifyAuth.js'
+// Server-side PKCE + Spotify helpers (self-contained)
+const PKCE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+function randString(len: number) {
+  const arr = new Uint8Array(len)
+  crypto.getRandomValues(arr)
+  let out = ''
+  for (let i = 0; i < len; i++) out += PKCE_ALPHABET[arr[i] % PKCE_ALPHABET.length]
+  return out
+}
+export function generateCodeVerifier() {
+  return randString(64)
+}
+function toBase64Url(buf: ArrayBuffer | Uint8Array) {
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf)
+  return Buffer.from(u8)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+export async function generateCodeChallenge(verifier: string) {
+  const data = new TextEncoder().encode(verifier)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return toBase64Url(digest)
+}
+export function buildAuthorizeUrl(args: {
+  clientId: string
+  redirectUri: string
+  scopes: string[]
+  codeChallenge: string
+  state: string
+}) {
+  const p = new URLSearchParams({
+    client_id: args.clientId,
+    response_type: 'code',
+    redirect_uri: args.redirectUri,
+    scope: args.scopes.join(' '),
+    code_challenge: args.codeChallenge,
+    code_challenge_method: 'S256',
+    state: args.state,
+    show_dialog: 'false',
+  })
+  return `https://accounts.spotify.com/authorize?${p.toString()}`
+}
+export async function exchangeCodeForToken(args: {
+  clientId: string
+  redirectUri: string
+  code: string
+  codeVerifier: string
+}) {
+  const body = new URLSearchParams({
+    client_id: args.clientId,
+    grant_type: 'authorization_code',
+    code: args.code,
+    redirect_uri: args.redirectUri,
+    code_verifier: args.codeVerifier,
+  })
+  const r = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  })
+  if (!r.ok) throw new Error(`token exchange failed ${r.status}: ${await r.text()}`)
+  return r.json() as Promise<{ access_token: string; refresh_token?: string; expires_in?: number }>
+}
 
 // ---------- Config ----------
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID ?? '4dadcbf0982443f48b2743adc6ae1226'
