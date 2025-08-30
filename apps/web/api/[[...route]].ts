@@ -1,8 +1,8 @@
 // apps/web/api/[[...route]].ts
 import { handle } from 'hono/vercel'
-import { app } from '../server-app'
+import { app } from '../server-app.js'
 
-export const runtime = 'edge' // you can switch to 'nodejs' if needed
+export const runtime = 'nodejs'
 export const GET = handle(app)
 export const POST = handle(app)
 export const PUT = handle(app)
