@@ -1,12 +1,16 @@
 // apps/web/api/[[...route]].ts
+import { Hono } from 'hono'
 import { handle } from 'hono/vercel'
 import { app } from '../server-app.js'
 
-export const runtime = 'nodejs'
-export const GET = handle(app)
-export const POST = handle(app)
-export const PUT = handle(app)
-export const DELETE = handle(app)
-export const OPTIONS = handle(app)
+// Mount the app under /api so rewrites like /auth/* -> /api/auth/* work
+const vercelApp = new Hono().route('/api', app)
 
-export default handle(app)
+export const runtime = 'nodejs'
+export const GET = handle(vercelApp)
+export const POST = handle(vercelApp)
+export const PUT = handle(vercelApp)
+export const DELETE = handle(vercelApp)
+export const OPTIONS = handle(vercelApp)
+
+export default handle(vercelApp)
