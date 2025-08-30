@@ -8,7 +8,7 @@ import {
   generateCodeChallenge,
   buildAuthorizeUrl,
   exchangeCodeForToken,
-} from './utils/spotifyAuth.js'
+} from './src/utils/spotifyAuth.js'
 
 // ---------- Config ----------
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID ?? '4dadcbf0982443f48b2743adc6ae1226'
@@ -613,4 +613,3 @@ async function handleGenerate(c: any) {
 // expose under BOTH paths so your dev proxy works
 app.post('/api/generate', handleGenerate)
 app.post('/generate', handleGenerate)
-
