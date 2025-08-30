@@ -115,6 +115,24 @@ export const app = new Hono()
 // Health check
 app.get('/', (c) => c.text('Hello from Song Storming (Vercel)!'))
 
+// Diagnostics (helps verify env + redirect URI and origin)
+app.get('/diag', (c) => {
+  const origin = getOrigin(c)
+  const redirectUri = `${origin}/api/auth/callback`
+  const mask = (s?: string | null) => (s ? `${String(s).slice(0, 4)}…${String(s).slice(-4)}` : null)
+  return c.json({
+    ok: true,
+    runtime: 'nodejs',
+    node: (process as any)?.versions?.node,
+    origin,
+    redirectUri,
+    env: {
+      SPOTIFY_CLIENT_ID_present: !!process.env.SPOTIFY_CLIENT_ID,
+      SPOTIFY_CLIENT_ID_preview: mask(process.env.SPOTIFY_CLIENT_ID ?? null),
+    },
+  })
+})
+
 // ----- Auth: Login -----
 app.get('/auth/login', async (c) => {
   const origin = getOrigin(c)
