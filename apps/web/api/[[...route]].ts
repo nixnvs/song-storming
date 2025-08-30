@@ -3,8 +3,11 @@ import { Hono } from 'hono'
 import { handle } from 'hono/vercel'
 import { app } from '../server-app.js'
 
-// Mount the app under /api so rewrites like /auth/* -> /api/auth/* work
-const vercelApp = new Hono().route('/api', app)
+// Mount the app under both "/api" and root so it works
+// whether or not rewrites are applied.
+const vercelApp = new Hono()
+  .route('/api', app)
+  .route('/', app)
 
 export const runtime = 'nodejs'
 export const GET = handle(vercelApp)
