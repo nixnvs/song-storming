@@ -1,8 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-
 export const runtime = 'nodejs'
 
-export default function handler(_req: VercelRequest, res: VercelResponse) {
+export default function handler(_req: any, res: any) {
   res.status(200).json({ ok: true, message: 'Song Storming API (apps/web) root' })
 }
-
