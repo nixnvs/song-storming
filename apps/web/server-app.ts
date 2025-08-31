@@ -693,22 +693,34 @@ async function handleGenerate(c: any) {
 // expose under BOTH paths so your dev proxy works
 app.post('/api/generate', handleGenerate)
 
-// Diagnostics under /api
-app.get('/api/diag', (c) => {
-  const origin = getOrigin(c)
-  const redirectUri = `${origin}/api/auth/callback`
-  const mask = (s?: string | null) => (s ? `${String(s).slice(0, 4)}…${String(s).slice(-4)}` : null)
-  return c.json({
-    ok: true,
-    runtime: 'nodejs',
-    node: (process as any)?.versions?.node,
-    origin,
-    redirectUri,
-    env: {
-      SPOTIFY_CLIENT_ID_present: !!process.env.SPOTIFY_CLIENT_ID,
-      SPOTIFY_CLIENT_ID_preview: mask(process.env.SPOTIFY_CLIENT_ID ?? null),
-    },
-  })
-})
+// --- diagnostics (defensive, never throws) ---
+app.get('/api/diag', async (c) => {
+  try {
+    const url = new URL(c.req.url);
+    const vercelUrl = process.env.VERCEL_URL || '';
+    const origin = vercelUrl ? `https://${vercelUrl}` : `${url.protocol}//${url.host}`;
+    const redirectUri = `${origin}/api/auth/callback`;
+
+    return c.json({
+      ok: true,
+      node: process.version,
+      vercelUrl,
+      origin,
+      redirectUri,
+      env: {
+        SPOTIFY_CLIENT_ID_present: Boolean(process.env.SPOTIFY_CLIENT_ID),
+      },
+    });
+  } catch (e: any) {
+    console.error('[diag] error:', e);
+    return c.json(
+      {
+        ok: false,
+        error: String(e?.message || e),
+      },
+      200
+    );
+  }
+});
 
 export default app
