@@ -112,8 +112,8 @@ function getOrigin(c: any) {
 // ---------- App ----------
 export const app = new Hono()
 
-// Health check
-app.get('/', (c) => c.text('Hello from Song Storming (Vercel)!'))
+// Health check under /api
+app.get('/api', (c) => c.text('Hello from Song Storming (Vercel)!'))
 
 // Diagnostics (helps verify env + redirect URI and origin)
 app.get('/diag', (c) => {
@@ -134,7 +134,7 @@ app.get('/diag', (c) => {
 })
 
 // ----- Auth: Login -----
-app.get('/auth/login', async (c) => {
+app.get('/api/auth/login', async (c) => {
   const origin = getOrigin(c)
   const REDIRECT_URI = `${origin}/api/auth/callback`
 
@@ -154,7 +154,7 @@ app.get('/auth/login', async (c) => {
 })
 
 // ----- Auth: Callback -----
-app.get('/auth/callback', async (c) => {
+app.get('/api/auth/callback', async (c) => {
   const origin = getOrigin(c)
   const FRONTEND_URL = origin                 // send user back to site root
   const REDIRECT_URI = `${origin}/api/auth/callback`
@@ -184,7 +184,10 @@ app.get('/auth/callback', async (c) => {
     })
 
     const packed = encodeURIComponent(Buffer.from(JSON.stringify(tokens)).toString('base64'))
-    return c.redirect(`${FRONTEND_URL}/#tokens=${packed}`)
+    const origin = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : new URL(c.req.url).origin
+    return c.redirect(`${origin}/#tokens=${packed}`)
   } catch (e) {
     console.error('Token exchange failed:', e)
     return c.text('Token exchange failed', 500)
@@ -192,14 +195,14 @@ app.get('/auth/callback', async (c) => {
 })
 
 // ----- Auth: Logout -----
-app.get('/auth/logout', (c) => {
+app.get('/api/auth/logout', (c) => {
   clearSession(c)
   const origin = getOrigin(c)
   return c.redirect(origin)
 })
 
 // ----- /me (works with Authorization header OR cookie) -----
-app.get('/me', async (c) => {
+app.get('/api/me', async (c) => {
   const auth = c.req.header('authorization')
   let token = auth?.replace(/^Bearer\s+/i, '') ?? null
   if (!token) token = getAccessTokenFromCookie(c)
@@ -225,7 +228,7 @@ app.get('/me', async (c) => {
 ============================================================ */
 
 // TEMP: debug the session cookie (safe to keep in dev)
-app.get('/debug/session', (c) => {
+app.get('/api/debug/session', (c) => {
   const raw = getCookie(c, 'ss_auth')
   let parsed: any = null
   if (raw) {
@@ -252,7 +255,7 @@ app.get('/debug/session', (c) => {
 })
 
 // Devices
-app.get('/devices', async (c) => {
+app.get('/api/devices', async (c) => {
   const token = getAccessTokenFromCookie(c)
   if (!token) return c.text('Unauthorized', 401)
 
@@ -264,7 +267,7 @@ app.get('/devices', async (c) => {
 })
 
 // Playlists
-app.get('/playlists', async (c) => {
+app.get('/api/playlists', async (c) => {
   const token = getAccessTokenFromCookie(c)
   if (!token) return c.text('Unauthorized', 401)
 
@@ -276,7 +279,7 @@ app.get('/playlists', async (c) => {
 })
 
 // Start playback for a playlist
-app.post('/play/:playlistId', async (c) => {
+app.post('/api/play/:playlistId', async (c) => {
   const token = getAccessTokenFromCookie(c)
   if (!token) return c.text('Unauthorized', 401)
 
@@ -689,4 +692,23 @@ async function handleGenerate(c: any) {
 
 // expose under BOTH paths so your dev proxy works
 app.post('/api/generate', handleGenerate)
-app.post('/generate', handleGenerate)
+
+// Diagnostics under /api
+app.get('/api/diag', (c) => {
+  const origin = getOrigin(c)
+  const redirectUri = `${origin}/api/auth/callback`
+  const mask = (s?: string | null) => (s ? `${String(s).slice(0, 4)}…${String(s).slice(-4)}` : null)
+  return c.json({
+    ok: true,
+    runtime: 'nodejs',
+    node: (process as any)?.versions?.node,
+    origin,
+    redirectUri,
+    env: {
+      SPOTIFY_CLIENT_ID_present: !!process.env.SPOTIFY_CLIENT_ID,
+      SPOTIFY_CLIENT_ID_preview: mask(process.env.SPOTIFY_CLIENT_ID ?? null),
+    },
+  })
+})
+
+export default app

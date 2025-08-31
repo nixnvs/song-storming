@@ -1,18 +1,14 @@
 {
   "rewrites": [
-    { "source": "/auth/(.*)",    "destination": "/api/auth/$1" },
-    { "source": "/me",           "destination": "/api/me" },
-    { "source": "/devices",      "destination": "/api/devices" },
-    { "source": "/playlists",    "destination": "/api/playlists" },
-    { "source": "/play/(.*)",    "destination": "/api/play/$1" },
-    { "source": "/generate",     "destination": "/api/generate" }
+    { "source": "/auth/(.*)", "destination": "/api/auth/$1" },
+    { "source": "/me", "destination": "/api/me" },
+    { "source": "/devices", "destination": "/api/devices" },
+    { "source": "/playlists", "destination": "/api/playlists" },
+    { "source": "/play/(.*)", "destination": "/api/play/$1" },
+    { "source": "/generate", "destination": "/api/generate" }
   ],
-  "redirects": [
-    { "source": "/auth/(.*)",    "destination": "/api/auth/$1", "permanent": false },
-    { "source": "/me",           "destination": "/api/me",       "permanent": false },
-    { "source": "/devices",      "destination": "/api/devices",  "permanent": false },
-    { "source": "/playlists",    "destination": "/api/playlists","permanent": false },
-    { "source": "/play/(.*)",    "destination": "/api/play/$1",  "permanent": false },
-    { "source": "/generate",     "destination": "/api/generate", "permanent": false }
+  "builds": [
+    { "src": "api/**/*.ts", "use": "@vercel/node", "config": { "includeFiles": ["api/**"] } },
+    { "src": "apps/web/**/*.ts", "use": "@vercel/node", "config": { "includeFiles": ["apps/web/**"] } }
   ]
 }
