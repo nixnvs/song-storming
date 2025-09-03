@@ -47,11 +47,11 @@ app.get('/api/diag', (c) => {
   return c.json({
     ok: true,
     node: process.version,
-    vercelUrl,
     origin,
     redirectUri,
     env: {
       SPOTIFY_CLIENT_ID_present: !!process.env.SPOTIFY_CLIENT_ID,
+      SPOTIFY_CLIENT_SECRET_present: !!process.env.SPOTIFY_CLIENT_SECRET,
     },
   })
 })
