@@ -25,9 +25,9 @@ export default function ServiceStart() {
 
   // ---------- constants ----------
   const blocks = [
-    { name: "Lunch",  color: "bg-blue-500",   time: "12:00 PM - 2:30 PM" },
+    { name: "Lunch", color: "bg-blue-500", time: "12:00 PM - 2:30 PM" },
     { name: "Dinner", color: "bg-orange-500", time: "7:00 PM - 10:00 PM" },
-    { name: "Late",   color: "bg-purple-500", time: "10:00 PM - 12:00 AM" },
+    { name: "Late", color: "bg-purple-500", time: "10:00 PM - 12:00 AM" },
   ];
   const today = new Date().toISOString().split("T")[0];
 
@@ -49,7 +49,7 @@ export default function ServiceStart() {
             history.replaceState({}, document.title, window.location.pathname);
           }
         });
-      }, 1200);
+      }, 30000);
       return () => clearInterval(t);
     }
 
@@ -60,7 +60,10 @@ export default function ServiceStart() {
       history.replaceState({}, document.title, window.location.pathname);
     }
     if (urlParams.get("error")) {
-      showToast(`Error: ${decodeURIComponent(urlParams.get("error"))}`, "error");
+      showToast(
+        `Error: ${decodeURIComponent(urlParams.get("error"))}`,
+        "error"
+      );
       history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -142,7 +145,7 @@ export default function ServiceStart() {
       if (isSpotifyConnected) {
         try {
           const playlistResponse = await fetch(
-            `/api/playlists?date=${today}&block=${blockName}`,
+            `/api/playlists?date=${today}&block=${blockName}`
           );
           const playlistData = await playlistResponse.json();
 
@@ -262,6 +265,22 @@ export default function ServiceStart() {
 
   const catalogWarning = getCatalogWarning();
 
+  const logoutSpotify = async () => {
+    try {
+      await fetch("http://127.0.0.1:5177/api/auth/logout", {
+        credentials: "include",
+      });
+      showToast("Logged out of Spotify", "success");
+      setIsSpotifyConnected(false);
+      setSpotifyUser(null);
+      setSpotifyPlaylists({});
+      setGeneratedPlaylists({});
+    } catch (err) {
+      console.error("Spotify logout failed:", err);
+      showToast("Failed to log out of Spotify", "error");
+    }
+  };
+
   // ---------- render ----------
   return (
     <div className="space-y-6 md:space-y-8">
@@ -272,8 +291,8 @@ export default function ServiceStart() {
             toast.type === "success"
               ? "bg-green-500 text-white"
               : toast.type === "warning"
-              ? "bg-orange-500 text-white"
-              : "bg-red-500 text-white"
+                ? "bg-orange-500 text-white"
+                : "bg-red-500 text-white"
           }`}
         >
           <div className="flex items-center space-x-2">
@@ -294,7 +313,8 @@ export default function ServiceStart() {
             Daily Playlist Service
           </h1>
           <p className="text-lg text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans">
-            Generate today's restaurant playlists - {new Date().toLocaleDateString()}
+            Generate today's restaurant playlists -{" "}
+            {new Date().toLocaleDateString()}
           </p>
         </div>
 
@@ -315,26 +335,41 @@ export default function ServiceStart() {
                   {isSpotifyConnected
                     ? `Connected as ${spotifyUser?.display_name || "User"}`
                     : checkingSpotify
-                    ? "Waiting for Spotify authorization…"
-                    : "Connect to automatically create Spotify playlists"}
+                      ? "Waiting for Spotify authorization…"
+                      : "Connect to automatically create Spotify playlists"}
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={() =>
-                window.open(
-                  "http://127.0.0.1:5177/api/auth/login",
-                  "_blank",
-                  "noopener"
-                )
-              }
-              className="flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-150 font-opensans"
-              disabled={checkingSpotify}
-            >
-              <Headphones className="w-4 h-4" />
-              <span>{checkingSpotify ? "Connecting…" : "Connect Spotify"}</span>
-            </button>
+            {!isSpotifyConnected ? (
+              <button
+                onClick={() =>
+                  window.open(
+                    "http://127.0.0.1:5177/api/auth/login",
+                    "_blank",
+                    "noopener"
+                  )
+                }
+                className="flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-150 font-opensans"
+                disabled={checkingSpotify}
+              >
+                <Headphones className="w-4 h-4" />
+                <span>
+                  {checkingSpotify ? "Connecting…" : "Connect Spotify"}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={logoutSpotify}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-150 font-opensans"
+                disabled={checkingSpotify}
+              >
+                <Headphones className="w-4 h-4" />
+                <span>
+                  {checkingSpotify ? "Connecting…" : "Logout Spotify"}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -439,8 +474,8 @@ export default function ServiceStart() {
                   {isLoading
                     ? "Generating..."
                     : status === "generated"
-                    ? `Regenerate ${block.name}`
-                    : `Generate ${block.name}`}
+                      ? `Regenerate ${block.name}`
+                      : `Generate ${block.name}`}
                 </span>
               </button>
 
