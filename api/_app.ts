@@ -5,18 +5,43 @@ import { cors } from "hono/cors";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 
 const app = new Hono();
-const FRONTEND_ORIGIN =
-  process.env.NEXT_PUBLIC_APP_ORIGIN ?? "http://localhost:4000";
 
-// CORS: allow the UI (localhost/127) to call the API with cookies
-const ALLOWED_ORIGINS = new Set<string>([
-  "http://localhost:4000",
-  "http://localhost:4001",
-  "http://127.0.0.1:4000",
-  "http://127.0.0.1:4001",
-  // add your current network URL if you open from another device:
-  "http://192.168.1.16:4000",
-]);
+const getFrontendOrigin = () => process.env.FRONTEND_ORIGIN;
+const getOrigin = () =>
+  process.env.NODE_ENV === "development"
+    ? "http://127.0.0.1:5177"
+    : getFrontendOrigin();
+
+const getEnvironment = () => process.env.NODE_ENV;
+
+// -------------------- Token helpers --------------------
+type Packed = {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  obtained_at?: number;
+};
+
+function readTokens(c: any): Packed | null {
+  const raw = getCookie(c, "sp_tokens");
+  if (!raw) return null;
+  try {
+    return JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function writeTokens(c: any, packed: Packed) {
+  const b64 = Buffer.from(JSON.stringify(packed)).toString("base64");
+  setCookie(c, "sp_tokens", b64, {
+    httpOnly: true,
+    sameSite: getEnvironment() === "development" ? "none" : "lax",
+    secure: true,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+}
 
 app.use(
   "/api/*",
@@ -24,7 +49,7 @@ app.use(
     origin: (origin) => {
       // If no Origin (curl, same-origin), don’t send ACAO header.
       if (!origin) return null;
-      return ALLOWED_ORIGINS.has(origin) ? origin : null;
+      return origin === getFrontendOrigin() ? origin : null;
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
@@ -56,17 +81,9 @@ app.get("/api/diag", (c) => {
   });
 });
 
-// -------------------- Auth (server-side with client_secret) --------------------
-function getOrigin(c: any) {
-  const v = process.env.VERCEL_URL;
-  if (v) return `https://${v}`;
-  const u = new URL(c.req.url);
-  return `${u.protocol}//${u.host}`; // e.g. http://127.0.0.1:5177
-}
-
 // 1) Login → redirect to Spotify with correct redirectUri
 app.get("/api/auth/login", (c) => {
-  const origin = getOrigin(c);
+  const origin = getOrigin();
   const redirectUri = `${origin}/api/auth/callback`;
 
   const state = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
@@ -107,7 +124,7 @@ app.get("/api/auth/callback", async (c) => {
   if (err) return c.text(`Auth error: ${err}`, 400);
   if (!code) return c.text("Missing code", 400);
 
-  const origin = getOrigin(c);
+  const origin = getOrigin();
   const redirectUri = `${origin}/api/auth/callback`;
 
   const body = new URLSearchParams({
@@ -136,25 +153,16 @@ app.get("/api/auth/callback", async (c) => {
     );
   }
 
-  const packed = Buffer.from(
-    JSON.stringify({
-      access_token: j.access_token,
-      refresh_token: j.refresh_token,
-      expires_in: j.expires_in,
-      obtained_at: Math.floor(Date.now() / 1000),
-    })
-  ).toString("base64");
+  const packed = {
+    access_token: j.access_token,
+    refresh_token: j.refresh_token,
+    expires_in: j.expires_in,
+    obtained_at: Math.floor(Date.now() / 1000),
+  } as Packed;
 
-  // httpOnly cookie (secure:false for local; true in prod)
-  setCookie(c, "sp_tokens", packed, {
-    httpOnly: true,
-    sameSite: "none",
-    secure: true,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
+  writeTokens(c, packed);
 
-  return c.redirect(`${FRONTEND_ORIGIN}/#connected=1`);
+  return c.redirect(`${getFrontendOrigin()}/#connected=1`);
 });
 
 // Optional logout
@@ -167,35 +175,6 @@ app.get("/api/auth/logout", (c) => {
   });
   return c.json({ ok: true });
 });
-
-// -------------------- Token helpers --------------------
-type Packed = {
-  access_token: string;
-  refresh_token?: string;
-  expires_in?: number;
-  obtained_at?: number;
-};
-
-function readTokens(c: any): Packed | null {
-  const raw = getCookie(c, "sp_tokens");
-  if (!raw) return null;
-  try {
-    return JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
-  } catch {
-    return null;
-  }
-}
-
-function writeTokens(c: any, packed: Packed) {
-  const b64 = Buffer.from(JSON.stringify(packed)).toString("base64");
-  setCookie(c, "sp_tokens", b64, {
-    httpOnly: true,
-    sameSite: "Lax",
-    secure: false, // true in prod
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-}
 
 // Refresh if the access_token is expiring/expired
 async function refreshIfNeeded(c: any, tok: Packed): Promise<Packed> {

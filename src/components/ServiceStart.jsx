@@ -12,6 +12,8 @@ import {
 // Keep ONLY this import from your spotify utils
 import { createDailyBlockPlaylist } from "@/utils/spotifyAuth";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
 export default function ServiceStart() {
   // ---------- state ----------
   const [loading, setLoading] = useState({});
@@ -99,7 +101,7 @@ export default function ServiceStart() {
   const checkSpotifyConnection = async () => {
     try {
       setCheckingSpotify(true);
-      const r = await fetch("http://127.0.0.1:5177/api/me", {
+      const r = await fetch(`${API_URL}/api/me`, {
         credentials: "include",
       });
       if (!r.ok) throw new Error("no session");
@@ -267,7 +269,7 @@ export default function ServiceStart() {
 
   const logoutSpotify = async () => {
     try {
-      await fetch("http://127.0.0.1:5177/api/auth/logout", {
+      await fetch(`${API_URL}/api/auth/logout`, {
         credentials: "include",
       });
       showToast("Logged out of Spotify", "success");
@@ -344,11 +346,7 @@ export default function ServiceStart() {
             {!isSpotifyConnected ? (
               <button
                 onClick={() =>
-                  window.open(
-                    "http://127.0.0.1:5177/api/auth/login",
-                    "_blank",
-                    "noopener"
-                  )
+                  window.open(`${API_URL}/api/auth/login`, "_blank", "noopener")
                 }
                 className="flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-150 font-opensans"
                 disabled={checkingSpotify}
