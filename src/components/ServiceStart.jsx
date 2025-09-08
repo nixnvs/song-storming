@@ -126,7 +126,7 @@ export default function ServiceStart() {
     setLoading((s) => ({ ...s, [blockName]: true }));
     try {
       // 1) generate locally
-      const genResponse = await fetch("/api/generator", {
+      const genResponse = await fetch(`${API_URL}/api/generator`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

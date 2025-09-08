@@ -3,6 +3,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
+import { generateBlock } from "./generator";
 
 const app = new Hono();
 
@@ -250,6 +251,32 @@ app.get("/api/me", async (c) => {
   const j = await r.json();
 
   return c.json({ ok: true, profile: j });
+});
+
+app.post("/api/generator", async (c) => {
+  try {
+    const body = await c.req.json();
+    const {
+      date_iso,
+      block_name,
+      force = false,
+      admin_override = false,
+    } = body;
+
+    if (!date_iso || !block_name) {
+      return c.json({ error: "Required fields: date_iso, block_name" }, 400);
+    }
+
+    const result = await generateBlock(date_iso, block_name, {
+      force,
+      admin_override,
+    });
+
+    return c.json(result, result.error ? 400 : 201);
+  } catch (error: any) {
+    console.error("Error generating playlist:", error);
+    return c.json({ error: "Failed to generate playlist" }, 500);
+  }
 });
 
 export default app;
