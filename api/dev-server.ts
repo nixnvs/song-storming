@@ -3,9 +3,7 @@ import { serve } from "@hono/node-server";
 import app from "./_app";
 import { config } from "dotenv";
 
-config({
-  path: ".env.local",
-});
+config();
 
 const port = process.env.PORT ? Number(process.env.PORT) : 5177;
 

@@ -83,7 +83,9 @@ export default function ServiceStart() {
 
   const checkExistingPlaylists = async () => {
     try {
-      const r = await fetch(`/api/playlists?date=${today}`);
+      const r = await fetch(`${API_URL}/api/playlists?date=${today}`,{
+        credentials: "include",
+      });
       const j = await r.json();
       if (j.playlists) {
         const existing = {};
@@ -120,7 +122,6 @@ export default function ServiceStart() {
     setSpotifyUser(null);
     return false;
   };
-
   // ---------- generation + spotify creation ----------
   const generateAndCreatePlaylist = async (blockName) => {
     setLoading((s) => ({ ...s, [blockName]: true }));
@@ -134,6 +135,8 @@ export default function ServiceStart() {
           block_name: blockName,
           force: !!generatedPlaylists[blockName],
         }),
+        credentials: "include",
+        duplex: "half",
       });
       const genResult = await genResponse.json();
       if (!genResult.success) {
@@ -147,43 +150,26 @@ export default function ServiceStart() {
       if (isSpotifyConnected) {
         try {
           const playlistResponse = await fetch(
-            `/api/playlists?date=${today}&block=${blockName}`
+            `${API_URL}/api/playlists`,{
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                dateISO: today,
+                blockName: blockName,
+                uris: genResult.playlist.tracks,
+              }),
+              credentials: "include",
+              duplex: "half",
+            }
           );
           const playlistData = await playlistResponse.json();
 
-          if (playlistData.playlists && playlistData.playlists[0]) {
-            const tracks = playlistData.playlists[0].tracks || [];
-            const uris = tracks
-              .map((t) => t.uri)
-              .filter((u) => u && u.startsWith("spotify:"));
-
-            if (uris.length > 0) {
-              const sRes = await createDailyBlockPlaylist(
-                today,
-                blockName,
-                uris
-              );
-
-              if (sRes.success) {
-                setSpotifyPlaylists((s) => ({ ...s, [blockName]: sRes }));
-                showToast(`${blockName} created in Spotify!`, "success");
-              } else {
-                console.warn("Spotify creation failed:", sRes.error);
-                showToast(
-                  `Generated locally, but Spotify sync failed: ${sRes.error}`,
-                  "warning"
-                );
-              }
-            } else {
-              showToast(
-                "Generated locally, but no Spotify URIs found",
-                "warning"
-              );
-            }
-          }
+          setSpotifyPlaylists((s) => ({ ...s, [blockName]: playlistData }));
+          showToast(`${blockName} created in Spotify!`, "success");
+         
         } catch (err) {
           console.error("Spotify playlist creation failed:", err);
-          showToast("Generated locally, but Spotify sync failed", "warning");
+          showToast("Spotify sync failed", "warning");
         }
       }
     } catch (err) {

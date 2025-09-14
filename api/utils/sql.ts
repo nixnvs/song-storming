@@ -1,8 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { config } from "dotenv";
-config({
-  path: ".env.local",
-});
+config();
 
 const NullishQueryFunction = () => {
   throw new Error(

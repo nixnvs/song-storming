@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, Calendar, Filter, Search, Music, Clock, ExternalLink } from "lucide-react";
 
 export default function History() {
@@ -6,62 +6,25 @@ export default function History() {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedBlock, setSelectedBlock] = useState("All");
   const [expandedPlaylist, setExpandedPlaylist] = useState(null);
+  const [history, setHistory] = useState([]);
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
   const blockTypes = ["All", "Lunch", "Dinner", "Late"];
 
-  const sampleHistory = [
-    {
-      id: 1,
-      date: "2024-08-13",
-      block: "Lunch",
-      startTime: "12:00",
-      endTime: "13:30",
-      duration: "90 minutes",
-      tracksPlayed: 23,
-      avgEnergy: 0.24,
-      avgBpm: 78,
-      exported: true,
-      playlist: [
-        { artist: "Nils Frahm", track: "Says", duration: "3:24", bpm: 72, energy: 0.2 },
-        { artist: "Max Richter", track: "On The Nature Of Daylight", duration: "6:00", bpm: 65, energy: 0.3 },
-        { artist: "Ólafur Arnalds", track: "Near Light", duration: "4:12", bpm: 85, energy: 0.15 }
-      ]
-    },
-    {
-      id: 2,
-      date: "2024-08-13",
-      block: "Dinner",
-      startTime: "19:00",
-      endTime: "21:00",
-      duration: "120 minutes",
-      tracksPlayed: 31,
-      avgEnergy: 0.45,
-      avgBpm: 95,
-      exported: false,
-      playlist: [
-        { artist: "Kiasmos", track: "Blurred EP", duration: "4:33", bpm: 102, energy: 0.5 },
-        { artist: "GoGo Penguin", track: "Hopopono", duration: "5:45", bpm: 88, energy: 0.4 }
-      ]
-    },
-    {
-      id: 3,
-      date: "2024-08-12",
-      block: "Late",
-      startTime: "22:00",
-      endTime: "23:30",
-      duration: "90 minutes",
-      tracksPlayed: 18,
-      avgEnergy: 0.32,
-      avgBpm: 70,
-      exported: true,
-      playlist: [
-        { artist: "Brian Eno", track: "An Ending (Ascent)", duration: "4:23", bpm: 68, energy: 0.25 },
-        { artist: "Stars of the Lid", track: "Don't Bother Them", duration: "8:12", bpm: 60, energy: 0.1 }
-      ]
-    }
-  ];
+  useEffect(() => {
+    const fetchHistory = async () => {
+      const response = await fetch(`${API_URL}/api/history`,{
+        credentials: "include",
+      });
+      const data = await response.json();
+      setHistory(data);
+    };
+    fetchHistory();
+  }, []);
 
-  const filteredHistory = sampleHistory.filter(entry => {
+
+  const filteredHistory = useMemo(() => history.filter(entry => {
     const matchesSearch = entry.playlist.some(track => 
       track.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
       track.track.toLowerCase().includes(searchTerm.toLowerCase())
@@ -70,7 +33,16 @@ export default function History() {
     const matchesBlock = selectedBlock === "All" || entry.block === selectedBlock;
     
     return matchesSearch && matchesDate && matchesBlock;
-  });
+  }), [history, searchTerm, selectedDate, selectedBlock]);
+
+
+  const durationPlayedInMinutes = useMemo(() => {
+    return filteredHistory.reduce((acc, entry) => acc + (typeof entry.duration==="string" ? parseInt(entry.duration.split(" ")[0]) : 0), 0);
+  }, [filteredHistory]);
+
+  const tracksPlayed = useMemo(() => {
+    return filteredHistory.reduce((acc, entry) => acc + entry.tracksPlayed, 0);
+  }, [filteredHistory]);
 
   const handleExportPlaylist = (playlistId) => {
     console.log("Exporting playlist:", playlistId);
@@ -173,8 +145,8 @@ export default function History() {
 
       {/* History List */}
       <div className="space-y-4">
-        {filteredHistory.map((entry) => (
-          <div key={entry.id} className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl overflow-hidden">
+        {filteredHistory.map((entry,index) => (
+          <div key={index} className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl overflow-hidden">
             {/* Entry Header */}
             <div className="p-6 border-b border-[#E6E6E6] dark:border-[#333333]">
               <div className="flex items-center justify-between">
@@ -202,10 +174,10 @@ export default function History() {
                     </span>
                   )}
                   <button
-                    onClick={() => setExpandedPlaylist(expandedPlaylist === entry.id ? null : entry.id)}
+                    onClick={() => setExpandedPlaylist(expandedPlaylist === index ? null : index)}
                     className="px-4 py-2 bg-[#F5F5F5] dark:bg-[#2A2A2A] border border-[#D9D9D9] dark:border-[#404040] rounded-lg hover:bg-[#EEEEEE] dark:hover:bg-[#333333] transition-all duration-150 active:scale-95 font-opensans text-[#4D4D4D] dark:text-[#B0B0B0]"
                   >
-                    {expandedPlaylist === entry.id ? "Hide" : "View"} Playlist
+                    {expandedPlaylist === index ? "Hide" : "View"} Playlist
                   </button>
                   <button
                     onClick={() => handleExportPlaylist(entry.id)}
@@ -219,7 +191,7 @@ export default function History() {
             </div>
 
             {/* Expanded Playlist */}
-            {expandedPlaylist === entry.id && (
+            {expandedPlaylist === index && (
               <div className="p-6 bg-[#F8F9FA] dark:bg-[#262626]">
                 <h4 className="font-semibold text-black dark:text-white mb-4 font-bricolage">
                   Tracks Played ({entry.playlist.length} of {entry.tracksPlayed})
@@ -284,11 +256,11 @@ export default function History() {
           <div className="text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans text-sm">Total Sessions</div>
         </div>
         <div className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-6 text-center">
-          <div className="text-2xl font-bold text-black dark:text-white font-sora">2,847</div>
+          <div className="text-2xl font-bold text-black dark:text-white font-sora">{tracksPlayed}</div>
           <div className="text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans text-sm">Tracks Played</div>
         </div>
         <div className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-6 text-center">
-          <div className="text-2xl font-bold text-black dark:text-white font-sora">186h</div>
+          <div className="text-2xl font-bold text-black dark:text-white font-sora">{durationPlayedInMinutes}m</div>
           <div className="text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans text-sm">Music Played</div>
         </div>
         <div className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-6 text-center">

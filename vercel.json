@@ -1,4 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "npm run build"
+  "functions": {
+    "api/[[...route]].ts": {
+      "runtime": "@vercel/node@2.0.0",
+      "includeFiles": "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node"
+    }
+  }
 }

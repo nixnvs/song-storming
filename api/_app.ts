@@ -3,9 +3,22 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import { generateBlock } from "./generator";
+import { generateBlock } from "./controllers/generator";
+import {
+  addTracksToPlaylist,
+  calculatePlaylistDuration,
+  createSpotifyPlaylist,
+  getUserPlaylists,
+} from "./controllers/playlist";
+import {
+  createUser,
+  createUserPlayBlock,
+  getRegisteredUser,
+  SpotifyUser,
+} from "./controllers/user";
+import { getUserPlayHistory } from "./controllers/history";
 
-const app = new Hono();
+const app = new Hono().basePath("/api");
 
 const getFrontendOrigin = () => process.env.FRONTEND_ORIGIN;
 const getOrigin = () =>
@@ -21,6 +34,7 @@ type Packed = {
   refresh_token?: string;
   expires_in?: number;
   obtained_at?: number;
+  user_id?: string;
 };
 
 function readTokens(c: any): Packed | null {
@@ -45,7 +59,7 @@ function writeTokens(c: any, packed: Packed) {
 }
 
 app.use(
-  "/api/*",
+  "/*",
   cors({
     origin: (origin) => {
       // If no Origin (curl, same-origin), don’t send ACAO header.
@@ -60,12 +74,11 @@ app.use(
 );
 
 // -------------------- Basics --------------------
-app.get("/", (c) => c.text("API is running. Try /api or /api/ping"));
-app.get("/api", (c) => c.json({ ok: true, service: "song-storming api" }));
-app.get("/api/ping", (c) => c.text("pong"));
+
+app.get("/ping", (c) => c.text("pong"));
 
 // Diagnostics that never 500
-app.get("/api/diag", (c) => {
+app.get("/diag", (c) => {
   const reqUrl = new URL(c.req.url);
   const vercelUrl = process.env.VERCEL_URL;
   const origin = vercelUrl ? `https://${vercelUrl}` : reqUrl.origin;
@@ -83,7 +96,7 @@ app.get("/api/diag", (c) => {
 });
 
 // 1) Login → redirect to Spotify with correct redirectUri
-app.get("/api/auth/login", (c) => {
+app.get("/auth/login", (c) => {
   const origin = getOrigin();
   const redirectUri = `${origin}/api/auth/callback`;
 
@@ -113,7 +126,7 @@ app.get("/api/auth/login", (c) => {
 });
 
 // 2) Callback → exchange code for tokens and store httpOnly cookie
-app.get("/api/auth/callback", async (c) => {
+app.get("/auth/callback", async (c) => {
   const url = new URL(c.req.url);
   const code = url.searchParams.get("code");
   const err = url.searchParams.get("error");
@@ -154,11 +167,16 @@ app.get("/api/auth/callback", async (c) => {
     );
   }
 
+  const user = await getSpotifyUser(j.access_token);
+
+  await createUser(user);
+
   const packed = {
     access_token: j.access_token,
     refresh_token: j.refresh_token,
     expires_in: j.expires_in,
     obtained_at: Math.floor(Date.now() / 1000),
+    user_id: user.id,
   } as Packed;
 
   writeTokens(c, packed);
@@ -167,7 +185,7 @@ app.get("/api/auth/callback", async (c) => {
 });
 
 // Optional logout
-app.get("/api/auth/logout", (c) => {
+app.get("/auth/logout", (c) => {
   deleteCookie(c, "sp_tokens", {
     path: "/",
     httpOnly: true,
@@ -210,8 +228,30 @@ async function refreshIfNeeded(c: any, tok: Packed): Promise<Packed> {
   return tok;
 }
 
+async function getSpotifyUser(accessToken): Promise<SpotifyUser> {
+  const r = await fetch("https://api.spotify.com/v1/me", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!r.ok) {
+    throw new Error(`Spotify user API failed: ${r.status}`);
+  }
+  return r.json();
+}
+
+const getSpotifyToken = async (c) => {
+  return async () => {
+    let tok = readTokens(c);
+    if (!tok?.access_token) {
+      c.status(401);
+      return c.json({ ok: false, error: "no_token" });
+    }
+    tok = await refreshIfNeeded(c, tok!);
+    return tok.access_token;
+  };
+};
+
 // -------------------- Debug & Me --------------------
-app.get("/api/auth/debug", (c) => {
+app.get("/auth/debug", (c) => {
   const raw = getCookie(c, "sp_tokens");
   let parsed: Packed | null = null;
   try {
@@ -228,7 +268,7 @@ app.get("/api/auth/debug", (c) => {
 });
 
 // /api/me — hit Spotify with the stored token
-app.get("/api/me", async (c) => {
+app.get("/me", async (c) => {
   let tok = readTokens(c);
   if (!tok?.access_token) {
     c.status(401);
@@ -237,37 +277,27 @@ app.get("/api/me", async (c) => {
 
   tok = await refreshIfNeeded(c, tok);
 
-  const r = await fetch("https://api.spotify.com/v1/me", {
-    headers: { Authorization: `Bearer ${tok.access_token}` },
-  });
-
-  if (!r.ok) {
-    return c.json(
-      { ok: false, status: r.status, body: r.statusText },
-      r.status as any
-    );
-  }
-
-  const j = await r.json();
+  const j = await getSpotifyUser(tok.access_token);
 
   return c.json({ ok: true, profile: j });
 });
 
-app.post("/api/generator", async (c) => {
+app.post("/generator", async (c) => {
   try {
     const body = await c.req.json();
-    const {
-      date_iso,
-      block_name,
-      force = false,
-      admin_override = false,
-    } = body;
+    const { date_iso, block_name, force = true, admin_override = false } = body;
 
     if (!date_iso || !block_name) {
       return c.json({ error: "Required fields: date_iso, block_name" }, 400);
     }
 
-    const result = await generateBlock(date_iso, block_name, {
+    const user = await getRegisteredUser(readTokens(c)?.user_id ?? "");
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 400);
+    }
+
+    const result = await generateBlock(date_iso, block_name, user, {
       force,
       admin_override,
     });
@@ -277,6 +307,116 @@ app.post("/api/generator", async (c) => {
     console.error("Error generating playlist:", error);
     return c.json({ error: "Failed to generate playlist" }, 500);
   }
+});
+
+app.post("/playlists", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { dateISO, blockName, uris } = body;
+
+    if (!dateISO || !blockName || !Array.isArray(uris)) {
+      return c.json(
+        { error: "Missing required parameters: dateISO, blockName, uris" },
+        { status: 400 }
+      );
+    }
+
+    let tok = readTokens(c);
+
+    if (!tok?.access_token) {
+      c.status(401);
+      return c.json({ ok: false, error: "no_token" });
+    }
+
+    tok = await refreshIfNeeded(c, tok!);
+    // Get Spotify access token
+    const accessToken = tok.access_token;
+    if (!accessToken) {
+      return c.json(
+        { error: "Spotify authentication required" },
+        { status: 401 }
+      );
+    }
+
+    // Get current user
+    const user = await getRegisteredUser(readTokens(c)?.user_id ?? "");
+
+    if (!user) {
+      return c.json(
+        { error: "Failed to get Spotify user information" },
+        { status: 400 }
+      );
+    }
+
+    // Create playlist
+    const playlist = await createSpotifyPlaylist(
+      accessToken,
+      user.spotify_id,
+      dateISO,
+      blockName,
+      uris.length
+    );
+    if (!playlist) {
+      return c.json(
+        { error: "Failed to create Spotify playlist" },
+        { status: 500 }
+      );
+    }
+
+    await createUserPlayBlock(user.id, blockName);
+
+    const getValidSpotifyToken = getSpotifyToken(c);
+
+    // Add tracks to playlist in chunks
+    const tracksAdded = await addTracksToPlaylist(
+      accessToken,
+      playlist.id,
+      uris,
+      getValidSpotifyToken
+    );
+
+    // Calculate total duration for response
+    const totalDurationSec = await calculatePlaylistDuration(
+      dateISO,
+      blockName
+    );
+
+    return c.json({
+      success: true,
+      playlist_url: playlist.external_urls.spotify,
+      playlist_id: playlist.id,
+      name: playlist.name,
+      tracks_added: tracksAdded,
+      total_duration_min: Math.round(totalDurationSec / 60),
+      user: user.name,
+    });
+  } catch (error) {
+    console.error("Error creating Spotify playlist:", error);
+    return c.json(
+      { error: `Failed to create playlist: ${error.message}` },
+      { status: 500 }
+    );
+  }
+});
+
+app.get("/playlists", async (c) => {
+  const { date } = c.req.query();
+  const user = await getRegisteredUser(readTokens(c)?.user_id ?? "");
+  if (!user) {
+    return c.json({ error: "User not found" }, 400);
+  }
+
+  const playlists = await getUserPlaylists(date, "", "", "", 50, 0);
+  return c.json({ playlists });
+});
+
+app.get("/history", async (c) => {
+  const user = await getRegisteredUser(readTokens(c)?.user_id ?? "");
+  if (!user) {
+    return c.json({ error: "User not found" }, 400);
+  }
+  const history = await getUserPlayHistory(user.id);
+  return c.json(history);
 });
 
 export default app;
