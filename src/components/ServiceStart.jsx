@@ -466,7 +466,7 @@ export default function ServiceStart() {
               {/* Export + Links */}
               {status === "generated" && playlist && (
                 <div className="space-y-2">
-                  {spotifyPlaylist?.playlistUrl && (
+                  {(spotifyPlaylist ?? playlist)?.playlistUrl && (
                     <a
                       href={spotifyPlaylist.playlistUrl}
                       target="_blank"

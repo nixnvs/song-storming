@@ -10,9 +10,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model play_blocks {
@@ -121,6 +120,7 @@ model user_play_blocks {
   guid          String      @unique @default(uuid()) @db.Uuid
   user_id       Int
   user          users       @relation(fields: [user_id], references: [id])
+  playlist_url  String?
   play_block_id Int
   play_blocks   play_blocks @relation(fields: [play_block_id], references: [id])
   created_at    DateTime    @default(now())

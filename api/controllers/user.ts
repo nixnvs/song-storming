@@ -60,7 +60,11 @@ export async function getRegisteredUser(
   return user;
 }
 
-export async function createUserPlayBlock(userId: number, blockName: string) {
+export async function createUserPlayBlock(
+  userId: number,
+  blockName: string,
+  playlistUrl: string
+) {
   const playBlock = await prisma.play_blocks.findFirst({
     where: {
       name: blockName,
@@ -74,6 +78,7 @@ export async function createUserPlayBlock(userId: number, blockName: string) {
     data: {
       user_id: userId,
       play_block_id: playBlock.id,
+      playlist_url: playlistUrl,
     },
   });
 }

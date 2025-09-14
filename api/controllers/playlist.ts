@@ -211,6 +211,7 @@ export async function getUserPlaylists(
       gi.date_iso,
       pb.name as block_name,
       pb.id as block_id,
+      upb.playlist_url as playlist_url,
       pb.target_min,
       COUNT(gi.id) as track_count,
       SUM((t.duration_ms)::numeric / 1000) as total_duration_sec,
@@ -223,6 +224,7 @@ export async function getUserPlaylists(
           'artist', t.artists,
           'duration_sec', (t.duration_ms)::numeric / 1000,
           'bpm', t.tempo,
+          'playlist_url', upb.playlist_url,
           'energy', t.energy,
           'uri', t.uri
         ) ORDER BY gi.position
@@ -230,7 +232,11 @@ export async function getUserPlaylists(
     FROM generated_items gi
     JOIN tracks t ON gi.track_id = t.id
     JOIN play_blocks pb ON gi.block_id = pb.id
-    WHERE 1=1
+JOIN (
+  SELECT DISTINCT ON (play_block_id) *
+  FROM user_play_blocks
+  ORDER BY play_block_id, created_at DESC
+) upb ON upb.play_block_id = pb.id    WHERE 1=1
   `;
 
     const params: any[] = [];
@@ -261,8 +267,8 @@ export async function getUserPlaylists(
     }
 
     query += `
-    GROUP BY gi.date_iso, pb.id, pb.name, pb.target_min
-    ORDER BY gi.date_iso DESC, pb.id
+    GROUP BY gi.date_iso, pb.id, pb.name, pb.target_min, upb.playlist_url, upb.created_at
+    ORDER BY gi.date_iso DESC, pb.id, upb.created_at DESC
     LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
   `;
 

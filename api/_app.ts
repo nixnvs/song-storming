@@ -18,7 +18,7 @@ import {
 } from "./controllers/user";
 import { getUserPlayHistory } from "./controllers/history";
 
-const app = new Hono().basePath("/api");
+const app = new Hono();
 
 const getFrontendOrigin = () => process.env.FRONTEND_ORIGIN;
 const getOrigin = () =>
@@ -59,7 +59,7 @@ function writeTokens(c: any, packed: Packed) {
 }
 
 app.use(
-  "/*",
+  "/api/*",
   cors({
     origin: (origin) => {
       // If no Origin (curl, same-origin), don’t send ACAO header.
@@ -75,10 +75,10 @@ app.use(
 
 // -------------------- Basics --------------------
 
-app.get("/ping", (c) => c.text("pong"));
+app.get("/api/ping", (c) => c.text("pong"));
 
 // Diagnostics that never 500
-app.get("/diag", (c) => {
+app.get("/api/diag", (c) => {
   const reqUrl = new URL(c.req.url);
   const vercelUrl = process.env.VERCEL_URL;
   const origin = vercelUrl ? `https://${vercelUrl}` : reqUrl.origin;
@@ -96,7 +96,7 @@ app.get("/diag", (c) => {
 });
 
 // 1) Login → redirect to Spotify with correct redirectUri
-app.get("/auth/login", (c) => {
+app.get("/api/auth/login", (c) => {
   const origin = getOrigin();
   const redirectUri = `${origin}/api/auth/callback`;
 
@@ -126,7 +126,7 @@ app.get("/auth/login", (c) => {
 });
 
 // 2) Callback → exchange code for tokens and store httpOnly cookie
-app.get("/auth/callback", async (c) => {
+app.get("/api/auth/callback", async (c) => {
   const url = new URL(c.req.url);
   const code = url.searchParams.get("code");
   const err = url.searchParams.get("error");
@@ -185,7 +185,7 @@ app.get("/auth/callback", async (c) => {
 });
 
 // Optional logout
-app.get("/auth/logout", (c) => {
+app.get("/api/auth/logout", (c) => {
   deleteCookie(c, "sp_tokens", {
     path: "/",
     httpOnly: true,
@@ -251,7 +251,7 @@ const getSpotifyToken = async (c) => {
 };
 
 // -------------------- Debug & Me --------------------
-app.get("/auth/debug", (c) => {
+app.get("/api/auth/debug", (c) => {
   const raw = getCookie(c, "sp_tokens");
   let parsed: Packed | null = null;
   try {
@@ -268,7 +268,7 @@ app.get("/auth/debug", (c) => {
 });
 
 // /api/me — hit Spotify with the stored token
-app.get("/me", async (c) => {
+app.get("/api/me", async (c) => {
   let tok = readTokens(c);
   if (!tok?.access_token) {
     c.status(401);
@@ -282,7 +282,7 @@ app.get("/me", async (c) => {
   return c.json({ ok: true, profile: j });
 });
 
-app.post("/generator", async (c) => {
+app.post("/api/generator", async (c) => {
   try {
     const body = await c.req.json();
     const { date_iso, block_name, force = true, admin_override = false } = body;
@@ -309,7 +309,7 @@ app.post("/generator", async (c) => {
   }
 });
 
-app.post("/playlists", async (c) => {
+app.post("/api/playlists", async (c) => {
   try {
     const body = await c.req.json();
     const { dateISO, blockName, uris } = body;
@@ -363,7 +363,11 @@ app.post("/playlists", async (c) => {
       );
     }
 
-    await createUserPlayBlock(user.id, blockName);
+    await createUserPlayBlock(
+      user.id,
+      blockName,
+      playlist.external_urls.spotify
+    );
 
     const getValidSpotifyToken = getSpotifyToken(c);
 
@@ -399,7 +403,7 @@ app.post("/playlists", async (c) => {
   }
 });
 
-app.get("/playlists", async (c) => {
+app.get("/api/playlists", async (c) => {
   const { date } = c.req.query();
   const user = await getRegisteredUser(readTokens(c)?.user_id ?? "");
   if (!user) {
@@ -410,7 +414,7 @@ app.get("/playlists", async (c) => {
   return c.json({ playlists });
 });
 
-app.get("/history", async (c) => {
+app.get("/api/history", async (c) => {
   const user = await getRegisteredUser(readTokens(c)?.user_id ?? "");
   if (!user) {
     return c.json({ error: "User not found" }, 400);
