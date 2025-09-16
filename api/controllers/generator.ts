@@ -282,7 +282,7 @@ async function selectTracksWithArtistSeparation(
   const artistLastUsed = new Map();
 
   // Calculate target track count (approximate, based on average track length)
-  const targetDurationSec = block.target_min! * 60;
+  const targetDurationSec = block.target_min! * 90 * 1000;
   let currentDurationSec = 0;
 
   const cooldownMs = rules.artist_cooldown_min * 60 * 1000;

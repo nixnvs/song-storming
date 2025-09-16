@@ -9,6 +9,7 @@ import {
   calculatePlaylistDuration,
   createSpotifyPlaylist,
   getUserPlaylists,
+  startSpotifyPlaylist,
 } from "./controllers/playlist";
 import {
   createUser,
@@ -384,6 +385,8 @@ app.post("/api/playlists", async (c) => {
       dateISO,
       blockName
     );
+
+    await startSpotifyPlaylist(playlist.id, accessToken);
 
     return c.json({
       success: true,

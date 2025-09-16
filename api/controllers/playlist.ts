@@ -285,3 +285,25 @@ JOIN (
     );
   }
 }
+
+export async function startSpotifyPlaylist(
+  playlistId: string,
+  accessToken: string
+) {
+  try {
+    const response = await fetch(`https://api.spotify.com/v1/me/player/play`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        context_uri: `spotify:playlist:${playlistId}`,
+      }),
+    });
+    return response;
+  } catch (error) {
+    console.error("Error starting Spotify playlist:", error);
+    return null;
+  }
+}
