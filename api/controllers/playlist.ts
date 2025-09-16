@@ -291,19 +291,46 @@ export async function startSpotifyPlaylist(
   accessToken: string
 ) {
   try {
-    const response = await fetch(`https://api.spotify.com/v1/me/player/play`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        context_uri: `spotify:playlist:${playlistId}`,
-      }),
-    });
+    const deviceIds = await fetch(
+      `https://api.spotify.com/v1/me/player/devices`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const activeDevices = await deviceIds.json();
+
+    const deviceId = activeDevices?.devices?.[0]?.id || "";
+
+    const response = await fetch(
+      `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          context_uri: `spotify:playlist:${playlistId}`,
+        }),
+      }
+    );
     return response;
   } catch (error) {
     console.error("Error starting Spotify playlist:", error);
     return null;
   }
+}
+
+export async function getPlaylist(playlistId: number) {
+  const playlist = await prisma.user_play_blocks.findUnique({
+    where: {
+      id: playlistId,
+    },
+  });
+  return playlist;
 }

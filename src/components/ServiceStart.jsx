@@ -428,7 +428,7 @@ export default function ServiceStart() {
                       </div>
                       <p className="text-xs text-green-600 dark:text-green-400">
                         {spotifyPlaylist.tracksAdded} tracks •{" "}
-                        {spotifyPlaylist.total_duration_min} min
+                        {Math.round(spotifyPlaylist.total_duration_min)} min
                       </p>
                     </div>
                   )}

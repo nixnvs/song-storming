@@ -8,6 +8,7 @@ import {
   addTracksToPlaylist,
   calculatePlaylistDuration,
   createSpotifyPlaylist,
+  getPlaylist,
   getUserPlaylists,
   startSpotifyPlaylist,
 } from "./controllers/playlist";
@@ -424,6 +425,20 @@ app.get("/api/history", async (c) => {
   }
   const history = await getUserPlayHistory(user.id);
   return c.json(history);
+});
+
+app.get("/api/playlists/:playlistId/play", async (c) => {
+  const { playlistId } = c.req.param();
+  const playlist = await getPlaylist(Number(playlistId));
+  const accessToken = readTokens(c)?.access_token;
+  if (!accessToken) {
+    return c.json({ error: "Spotify authentication required" }, 401);
+  }
+  const playResponse = await startSpotifyPlaylist(
+    playlist?.playlist_url?.split("playlist/").pop() ?? "",
+    accessToken
+  );
+  return c.json(playResponse);
 });
 
 export default app;

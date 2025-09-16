@@ -14,3 +14,5 @@ build
 
 temp
 .vercel
+
+rest.http
