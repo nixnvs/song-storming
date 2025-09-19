@@ -399,7 +399,7 @@ export default function ServiceStart() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm text-[#6F6F6F] dark:text-[#AAAAAA]">
                       <div>{playlist.stats?.track_count || 0} tracks</div>
-                      <div>{playlist.stats?.actual_duration_min || 0} min</div>
+                      <div>{Math.round(playlist.stats?.actual_duration_min || 0)} min</div>
                       <div>Avg {playlist.stats?.avg_bpm || 0} BPM</div>
                       <div>{playlist.stats?.avg_energy || 0} energy</div>
                     </div>

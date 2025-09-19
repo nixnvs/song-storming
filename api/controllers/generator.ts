@@ -1,5 +1,5 @@
 import prisma from "../utils/prisma-client";
-import { Prisma, users } from "@prisma/client";
+import { BlockName, Prisma, users } from "@prisma/client";
 
 export async function generateBlock(
   dateISO,
@@ -70,6 +70,13 @@ export async function generateBlock(
     cooldownDate.setDate(cooldownDate.getDate() - rules.track_cooldown_days);
     const cooldownDateISO = cooldownDate.toISOString().split("T")[0];
 
+    const blockNameValue =
+      blockName === "Dinner"
+        ? "DINNER"
+        : blockName === "Late"
+          ? "LATE"
+          : "LUNCH";
+
     const candidateTracks: (Prisma.tracksGetPayload<{
       include: { generated_items: true };
     }> & {
@@ -121,7 +128,84 @@ export async function generateBlock(
         AND (${admin_override}::boolean 
              OR last_played.date_iso IS NULL 
              OR last_played.date_iso <= ${cooldownDateISO}::timestamp)
+        AND t.block_name = ${blockNameValue}::"BlockName"
     `;
+
+    // ---- BLOCK FILTERS (DB controls ranges) -----------------------------
+    const banned = /(lo[-\s]?fi|chillhop|study|sleep|beats\s+to|drill|trap)/i;
+
+    const lateArtists = [
+      "rumbotumba",
+      "nicola cruz",
+      "chancha via circuito",
+      "khruangbin",
+      "bonobo",
+      "quantic",
+      "st germain",
+      "the cinematic orchestra",
+      "air",
+      "zero 7",
+      "fkj",
+      "tom misch",
+      "jordan rakei",
+    ];
+    const lateGenres = [
+      "latin",
+      "cumbia",
+      "bossa",
+      "bossa nova",
+      "mpb",
+      "andean",
+      "electro-latin",
+      "nu jazz",
+      "downtempo",
+      "lounge",
+      "soul",
+      "soultronic",
+    ];
+
+    const pool: typeof candidateTracks = candidateTracks.filter((t) => {
+      const name = (t.name || "").toLowerCase();
+      const album = (t.album_name || "").toLowerCase();
+      const genres = (t.genres || "").toLowerCase();
+      if (banned.test(name) || banned.test(album) || banned.test(genres))
+        return false;
+
+      const speech = Number(t.speechiness ?? 0);
+      const instr = Number(t.instrumentalness ?? 0);
+      const pop = Number(t.popularity ?? 0);
+      const artistsStr = (t.artists || "").toLowerCase();
+
+      if (blockName === "Dinner") {
+        // Michelin: elegant/unobtrusive; DB handles BPM/Energy via Neon
+        return speech <= 0.05 && instr >= 0.2 && pop >= 35 && pop <= 80;
+      }
+
+      if (blockName === "Late") {
+        // Late: tasteful lift; prefer latin/soultronic/nu-jazz
+        const preferred =
+          lateGenres.some((kw) => genres.includes(kw)) ||
+          lateArtists.some((a) => artistsStr.includes(a));
+        return (
+          speech <= 0.08 &&
+          instr >= (preferred ? 0.1 : 0.15) &&
+          pop >= 40 &&
+          pop <= 85
+        );
+      }
+
+      return true; // Lunch unchanged
+    });
+
+    if ((blockName === "Dinner" || blockName === "Late") && pool.length === 0) {
+      return {
+        error: `${block.name}: no tracks after stylistic filters. Consider refreshing temp/tracks.csv.`,
+        stats: {
+          total_tracks: candidateTracks.length,
+          discarded_by_cooldown: 0,
+        },
+      };
+    }
 
     if (candidateTracks.length === 0) {
       return {
