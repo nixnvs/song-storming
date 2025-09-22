@@ -128,7 +128,6 @@ export async function generateBlock(
         AND (${admin_override}::boolean 
              OR last_played.date_iso IS NULL 
              OR last_played.date_iso <= ${cooldownDateISO}::timestamp)
-        AND t.block_name = ${blockNameValue}::"BlockName"
     `;
 
     // ---- BLOCK FILTERS (DB controls ranges) -----------------------------
@@ -260,12 +259,15 @@ export async function generateBlock(
     scoredTracks.sort((a, b) => b.score - a.score);
 
     // 5) Selection: Fill to targetMin respecting artist separation
-    const selectedTracks = await selectTracksWithArtistSeparation(
-      scoredTracks,
-      block,
-      rules,
-      dateISO
-    );
+    const selectedTracks =
+      blockNameValue !== "LATE"
+        ? await selectTracksWithArtistSeparation(
+            scoredTracks,
+            block,
+            rules,
+            dateISO
+          )
+        : scoredTracks;
 
     if (selectedTracks.length === 0) {
       return {
