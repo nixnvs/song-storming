@@ -110,7 +110,6 @@ export async function generateBlock(
       LEFT JOIN (
         SELECT track_id, MAX(date_iso) AS date_iso
         FROM generated_items 
-        WHERE date_iso > ${cooldownDateISO}::timestamp
         GROUP BY track_id
       ) last_played 
         ON t.id = last_played.track_id
@@ -118,16 +117,12 @@ export async function generateBlock(
       LEFT JOIN (
         SELECT artist, COUNT(*)::int AS usage_count
         FROM generated_items 
-        WHERE date_iso > ${cooldownDateISO}::timestamp
         GROUP BY artist
       ) artist_usage 
         ON artist_usage.artist = ANY(string_to_array(t.artists, ','))
     
       WHERE (NOT ${rules.exclude_explicit}::boolean OR t.explicit = false)
-        AND (NOT ${block.prefer_instrumental}::boolean OR t.instrumentalness IS NOT NULL)
-        AND (${admin_override}::boolean 
-             OR last_played.date_iso IS NULL 
-             OR last_played.date_iso <= ${cooldownDateISO}::timestamp)
+        AND (NOT ${block.prefer_instrumental}::boolean OR t.instrumentalness IS NOT NULL) 
     `;
 
     // ---- BLOCK FILTERS (DB controls ranges) -----------------------------
@@ -182,15 +177,8 @@ export async function generateBlock(
 
       if (blockName === "Late") {
         // Late: tasteful lift; prefer latin/soultronic/nu-jazz
-        const preferred =
-          lateGenres.some((kw) => genres.includes(kw)) ||
-          lateArtists.some((a) => artistsStr.includes(a));
-        return (
-          speech <= 0.08 &&
-          instr >= (preferred ? 0.1 : 0.15) &&
-          pop >= 40 &&
-          pop <= 85
-        );
+
+        return speech <= 0.08 && pop >= 40 && pop <= 85;
       }
 
       return true; // Lunch unchanged
