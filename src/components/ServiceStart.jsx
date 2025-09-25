@@ -11,12 +11,16 @@ import {
 
 // Keep ONLY this import from your spotify utils
 import { createDailyBlockPlaylist } from "@/utils/spotifyAuth";
+import Card from "./ui/Card";
+import Button from "./ui/Button";
+import Chip from "./ui/Chip";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function ServiceStart() {
   // ---------- state ----------
   const [loading, setLoading] = useState({});
+  const [errors, setErrors] = useState({});
   const [catalogHealth, setCatalogHealth] = useState(null);
   const [generatedPlaylists, setGeneratedPlaylists] = useState({});
   const [spotifyPlaylists, setSpotifyPlaylists] = useState({});
@@ -27,9 +31,9 @@ export default function ServiceStart() {
 
   // ---------- constants ----------
   const blocks = [
-    { name: "Lunch", color: "bg-blue-500", time: "12:00 PM - 2:30 PM" },
-    { name: "Dinner", color: "bg-orange-500", time: "7:00 PM - 10:00 PM" },
-    { name: "Late", color: "bg-purple-500", time: "10:00 PM - 12:00 AM" },
+    { name: "Lunch", color: "bg-spotify-green", time: "12:00 PM - 2:30 PM" },
+    { name: "Dinner", color: "bg-[#EFB62B]", time: "7:00 PM - 10:00 PM" },
+    { name: "Late", color: "bg-[#A45CFF]", time: "10:00 PM - 12:00 AM" },
   ];
   const today = new Date().toISOString().split("T")[0];
 
@@ -125,6 +129,7 @@ export default function ServiceStart() {
   // ---------- generation + spotify creation ----------
   const generateAndCreatePlaylist = async (blockName) => {
     setLoading((s) => ({ ...s, [blockName]: true }));
+    setErrors((s) => ({ ...s, [blockName]: null }));
     try {
       // 1) generate locally
       const genResponse = await fetch(`${API_URL}/api/generator`, {
@@ -174,12 +179,21 @@ export default function ServiceStart() {
       }
     } catch (err) {
       console.error(`Error generating ${blockName}:`, err);
+      setErrors((s) => ({ ...s, [blockName]: err?.message || 'Failed to generate' }));
       showToast(
         `Failed to generate ${blockName} playlist: ${err.message}`,
         "error"
       );
     } finally {
       setLoading((s) => ({ ...s, [blockName]: false }));
+    }
+  };
+
+  const generateAll = async () => {
+    for (const b of blocks) {
+      // sequential to reflect state clearly
+      // eslint-disable-next-line no-await-in-loop
+      await generateAndCreatePlaylist(b.name);
     }
   };
 
@@ -272,260 +286,184 @@ export default function ServiceStart() {
   // ---------- render ----------
   return (
     <div className="space-y-6 md:space-y-8">
-      {/* Toast */}
-      {toast && (
-        <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-            toast.type === "success"
-              ? "bg-green-500 text-white"
-              : toast.type === "warning"
-                ? "bg-orange-500 text-white"
-                : "bg-red-500 text-white"
-          }`}
-        >
-          <div className="flex items-center space-x-2">
-            {toast.type === "success" ? (
-              <CheckCircle className="w-5 h-5" />
+      {/* no toasts per spec */}
+
+      {/* Service Bar */}
+      <Card className="p-4 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className={`inline-block w-3 h-3 rounded-full ${isSpotifyConnected ? 'bg-spotify-green' : 'bg-spotify-border'}`} />
+            <div className="flex flex-col">
+              <span className="text-base md:text-lg font-normal">Daily Playlist Service</span>
+              <span className="text-sm text-spotify-mute">{new Date().toLocaleDateString()}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 md:gap-3">
+            {!isSpotifyConnected ? (
+              <Button
+                onClick={() => window.open(`${API_URL}/api/auth/login`, "_blank", "noopener")}
+                variant="secondary"
+                disabled={checkingSpotify}
+              >
+                <Headphones className="w-4 h-4 mr-2" />
+                {checkingSpotify ? "Connecting…" : "Connect"}
+              </Button>
             ) : (
-              <AlertTriangle className="w-5 h-5" />
+              <Button onClick={logoutSpotify} variant="secondary">
+                Disconnect
+              </Button>
             )}
-            <span>{toast.message}</span>
+            <Button onClick={generateAll} className="ml-1">Generate All</Button>
           </div>
         </div>
+      </Card>
+      {catalogWarning && (
+        <Card className="p-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className={`w-4 h-4 ${catalogWarning.level === 'critical' ? 'text-red-400' : 'text-yellow-400'}`} />
+            <p className="text-sm text-spotify-mute">{catalogWarning.message}</p>
+          </div>
+        </Card>
       )}
 
-      {/* Service Header */}
-      <div className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-6 md:p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-black dark:text-white mb-4 font-sora">
-            Daily Playlist Service
-          </h1>
-          <p className="text-lg text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans">
-            Generate today's restaurant playlists -{" "}
-            {new Date().toLocaleDateString()}
-          </p>
-        </div>
-
-        {/* Spotify Connection Status */}
-        <div className="mb-8 p-4 rounded-lg border bg-[#F5F5F5] dark:bg-[#2A2A2A] border-[#E6E6E6] dark:border-[#333333]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div
-                className={`w-4 h-4 rounded-full ${
-                  isSpotifyConnected ? "bg-green-500" : "bg-gray-400"
-                }`}
-              />
-              <div>
-                <h4 className="text-lg font-semibold text-black dark:text-white font-bricolage">
-                  Spotify Integration
-                </h4>
-                <p className="text-sm text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans">
-                  {isSpotifyConnected
-                    ? `Connected as ${spotifyUser?.display_name || "User"}`
-                    : checkingSpotify
-                      ? "Waiting for Spotify authorization…"
-                      : "Connect to automatically create Spotify playlists"}
-                </p>
-              </div>
-            </div>
-
-            {!isSpotifyConnected ? (
-              <button
-                onClick={() =>
-                  window.open(`${API_URL}/api/auth/login`, "_blank", "noopener")
-                }
-                className="flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-150 font-opensans"
-                disabled={checkingSpotify}
-              >
-                <Headphones className="w-4 h-4" />
-                <span>
-                  {checkingSpotify ? "Connecting…" : "Connect Spotify"}
-                </span>
-              </button>
-            ) : (
-              <button
-                onClick={logoutSpotify}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-150 font-opensans"
-                disabled={checkingSpotify}
-              >
-                <Headphones className="w-4 h-4" />
-                <span>
-                  {checkingSpotify ? "Connecting…" : "Logout Spotify"}
-                </span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Block Generation Controls */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {blocks.map((block) => {
           const status = getBlockStatus(block.name);
           const playlist = generatedPlaylists[block.name];
           const spotifyPlaylist = spotifyPlaylists[block.name];
-          const isLoading = loading[block.name];
-          const durationWarning = playlist
-            ? getPlaylistDurationWarning(playlist)
-            : null;
+          const isLoading = !!loading[block.name];
+          const error = errors[block.name];
+          const durationWarning = getPlaylistDurationWarning(playlist);
 
           return (
-            <div
-              key={block.name}
-              className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-6"
-            >
-              {/* Block Header */}
-              <div className="flex items-center space-x-3 mb-4">
-                <div className={`w-4 h-4 rounded-full ${block.color}`} />
-                <div>
-                  <h3 className="text-xl font-bold text-black dark:text-white font-sora">
-                    {block.name}
-                  </h3>
-                  <p className="text-sm text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans">
-                    {block.time}
-                  </p>
+            <Card key={block.name} className="p-5 md:p-6">
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span className={`inline-block w-3 h-3 rounded-full ${block.color}`} />
+                  <div>
+                    <div className="text-base md:text-lg font-normal">{block.name}</div>
+                    <div className="text-xs text-spotify-mute">{block.time}</div>
+                  </div>
+                </div>
+                <div className="text-xs text-spotify-mute">
+                  {status === 'generated' ? (
+                    <span className="inline-flex items-center gap-1 text-spotify-text">
+                      <CheckCircle className="w-4 h-4 text-spotify-green" />
+                      Generated
+                    </span>
+                  ) : (
+                    'Not generated'
+                  )}
                 </div>
               </div>
 
-              {/* Status & Stats */}
-              {status === "generated" && playlist && (
-                <div className="mb-4 space-y-3">
-                  <div className="p-3 bg-[#F5F5F5] dark:bg-[#2A2A2A] rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                        Generated
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm text-[#6F6F6F] dark:text-[#AAAAAA]">
-                      <div>{playlist.stats?.track_count || 0} tracks</div>
-                      <div>{Math.round(playlist.stats?.actual_duration_min || 0)} min</div>
-                      <div>Avg {playlist.stats?.avg_bpm || 0} BPM</div>
-                      <div>{playlist.stats?.avg_energy || 0} energy</div>
-                    </div>
-                  </div>
+              {/* Stats chips */}
+              <div className="flex items-center gap-2 mb-4">
+                <Chip>Tracks: {playlist?.tracks?.length || 0}</Chip>
+                <Chip>Target: {playlist?.stats?.target_duration_min ?? '—'} min</Chip>
+                <Chip>Avg energy: {playlist?.stats?.avg_energy ?? '—'}</Chip>
+              </div>
 
-                  {/* Duration Warning */}
+              {/* States */}
+              {isLoading ? (
+                <div className="space-y-2 mb-4">
+                  <div className="h-3 bg-[#232323] rounded w-2/3" />
+                  <div className="h-3 bg-[#232323] rounded w-1/2" />
+                  <div className="h-3 bg-[#232323] rounded w-3/4" />
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="mb-3 text-sm text-red-400">{error}</div>
+              ) : null}
+
+              {status === "generated" && playlist && (
+                <div className="space-y-3 mb-4">
                   {durationWarning && (
-                    <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-                      <div className="flex items-start space-x-2">
-                        <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-orange-700 dark:text-orange-300">
-                          {durationWarning}
-                        </p>
+                    <div className="p-3 bg-[#232323] border border-spotify-border rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5" />
+                        <p className="text-sm text-spotify-mute">{durationWarning}</p>
                       </div>
                     </div>
                   )}
-
-                  {/* Spotify Playlist Status */}
                   {spotifyPlaylist && (
-                    <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Headphones className="w-4 h-4 text-green-500" />
-                        <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          {spotifyPlaylist.name}
-                        </span>
+                    <div className="p-3 bg-[#232323] border border-spotify-border rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Headphones className="w-4 h-4 text-spotify-green" />
+                        <span className="text-sm text-spotify-text">{spotifyPlaylist.name}</span>
                       </div>
-                      <p className="text-xs text-green-600 dark:text-green-400">
-                        {spotifyPlaylist.tracksAdded} tracks •{" "}
-                        {Math.round(spotifyPlaylist.total_duration_min)} min
+                      <p className="text-xs text-spotify-mute">
+                        {spotifyPlaylist.tracksAdded} tracks • {Math.round(spotifyPlaylist.total_duration_min)} min
                       </p>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Generate Button */}
-              <button
-                onClick={() => generateAndCreatePlaylist(block.name)}
-                disabled={isLoading || catalogWarning?.level === "critical"}
-                className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-lg font-semibold transition-all duration-150 mb-3 ${
-                  status === "generated"
-                    ? "bg-[#F5F5F5] dark:bg-[#2A2A2A] border border-[#D9D9D9] dark:border-[#404040] text-[#4D4D4D] dark:text-[#B0B0B0] hover:bg-[#EEEEEE] dark:hover:bg-[#333333]"
-                    : "bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white"
-                } ${
-                  isLoading || catalogWarning?.level === "critical"
-                    ? "opacity-50 cursor-not-allowed"
-                    : "active:scale-95"
-                }`}
-              >
-                {isLoading ? (
-                  <Loader className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Play className="w-5 h-5" />
-                )}
-                <span>
-                  {isLoading
-                    ? "Generating..."
-                    : status === "generated"
-                      ? `Regenerate ${block.name}`
-                      : `Generate ${block.name}`}
-                </span>
-              </button>
-
-              {/* Export + Links */}
-              {status === "generated" && playlist && (
-                <div className="space-y-2">
-                  {(spotifyPlaylist ?? playlist)?.playlistUrl && (
-                    <a
-                      href={spotifyPlaylist.playlistUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-150"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>Open in Spotify</span>
-                    </a>
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  onClick={() => generateAndCreatePlaylist(block.name)}
+                  disabled={isLoading || catalogWarning?.level === "critical"}
+                >
+                  {isLoading ? (
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4 mr-2" />
                   )}
-
-                  <button
-                    onClick={() => exportToCsv(block.name)}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-[#F5F5F5] dark:bg-[#2A2A2A] border border-[#D9D9D9] dark:border-[#404040] text-[#4D4D4D] dark:text-[#B0B0B0] hover:bg-[#EEEEEE] dark:hover:bg-[#333333] rounded-lg transition-all duration-150"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download CSV</span>
-                  </button>
-                </div>
-              )}
-            </div>
+                  {status === "generated" ? `Regenerate ${block.name}` : `Generate ${block.name}`}
+                </Button>
+                {status === "generated" && (
+                  <Button variant="secondary" onClick={() => generateAndCreatePlaylist(block.name)}>
+                    Regenerate
+                  </Button>
+                )}
+                {status === "generated" && playlist && (
+                  <>
+                    {(spotifyPlaylist ?? playlist)?.playlistUrl && (
+                      <a
+                        href={(spotifyPlaylist ?? playlist)?.playlistUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-spotify-mute hover:text-spotify-text text-sm focus:outline-none focus:ring-2 focus:ring-spotify-green rounded-full px-2 py-1"
+                      >
+                        <span className="inline-flex items-center gap-1"><ExternalLink className="w-4 h-4" /> Open on Spotify</span>
+                      </a>
+                    )}
+                    <button
+                      onClick={() => exportToCsv(block.name)}
+                      className="text-spotify-mute hover:text-spotify-text text-sm focus:outline-none focus:ring-2 focus:ring-spotify-green rounded-full px-2 py-1"
+                    >
+                      <span className="inline-flex items-center gap-1"><Download className="w-4 h-4" /> Download CSV</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </Card>
           );
         })}
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-black dark:text-white font-sora">
-            {catalogHealth?.total_tracks || 0}
-          </div>
-          <div className="text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans text-sm">
-            Total Tracks
-          </div>
-        </div>
-        <div className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-black dark:text-white font-sora">
-            {catalogHealth?.unique_artists || 0}
-          </div>
-          <div className="text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans text-sm">
-            Artists
-          </div>
-        </div>
-        <div className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-black dark:text-white font-sora">
-            {Math.round((catalogHealth?.total_duration_hours || 0) * 10) / 10}h
-          </div>
-          <div className="text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans text-sm">
-            Music Library
-          </div>
-        </div>
-        <div className="bg-white dark:bg-[#1E1E1E] border border-[#E6E6E6] dark:border-[#333333] rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400 font-sora">
-            {Object.keys(generatedPlaylists).length}/3
-          </div>
-          <div className="text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans text-sm">
-            Generated Today
-          </div>
-        </div>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-medium">{catalogHealth?.total_tracks || 0}</div>
+          <div className="text-spotify-mute text-sm">Total Tracks</div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-medium">{catalogHealth?.unique_artists || 0}</div>
+          <div className="text-spotify-mute text-sm">Artists</div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-medium">{Math.round((catalogHealth?.total_duration_hours || 0) * 10) / 10}h</div>
+          <div className="text-spotify-mute text-sm">Music Library</div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-medium text-spotify-green">{Object.keys(generatedPlaylists).length}/3</div>
+          <div className="text-spotify-mute text-sm">Generated Today</div>
+        </Card>
       </div>
     </div>
   );

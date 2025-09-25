@@ -1,10 +1,23 @@
 module.exports = {
+	darkMode: 'class',
 	content: ['./src/**/*.{js,ts,jsx,tsx}'],
 	theme: {
 		fontFamily: {
 			sans: ['Inter', 'sans-serif'],
 		},
 		extend: {
+			colors: {
+				spotify: {
+					green: '#1DB954',
+					greenDark: '#1AA34A',
+					black: '#121212',
+					dark: '#181818',
+					card: '#1F1F1F',
+					border: '#2A2A2A',
+					text: '#FFFFFF',
+					mute: '#B3B3B3',
+				},
+			},
 			fontFamily: {
 				'a-bee-zee': 'A Bee Zee',
 				'ad-la-m-display': 'Ad La M Display',

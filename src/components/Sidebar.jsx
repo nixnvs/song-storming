@@ -38,11 +38,11 @@ export default function Sidebar({ onClose, activeSection, onSectionChange }) {
   ];
 
   return (
-    <div className="w-60 bg-[#F3F3F3] dark:bg-[#1A1A1A] flex-shrink-0 flex flex-col h-full">
+    <div className="w-60 bg-spotify-dark border-r border-spotify-border flex-shrink-0 flex flex-col h-full">
       {/* Brand Logo */}
       <div className="p-4 flex justify-start">
-        <div className="w-12 h-12 bg-white dark:bg-[#262626] rounded-full border border-[#E4E4E4] dark:border-[#404040] flex items-center justify-center">
-          <Music className="w-6 h-6 text-black dark:text-white" />
+        <div className="w-10 h-10 bg-spotify-card rounded-full border border-spotify-border flex items-center justify-center">
+          <Music className="w-5 h-5 text-spotify-text" />
         </div>
       </div>
 
@@ -58,27 +58,21 @@ export default function Sidebar({ onClose, activeSection, onSectionChange }) {
               <div key={item.name}>
                 <button
                   onClick={() => handleItemClick(item.name, item.hasSubmenu)}
-                  className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-spotify-green ${
                     isActive
-                      ? "bg-white dark:bg-[#262626] border border-[#E4E4E4] dark:border-[#404040] text-black dark:text-white"
-                      : "text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10 active:bg-white/70 dark:active:bg-white/15 active:scale-[0.98]"
+                      ? "bg-[#232323] text-spotify-text"
+                      : "text-spotify-mute hover:text-spotify-text hover:bg-[#232323]"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon
-                      size={20}
+                      size={18}
                       className={
-                        isActive
-                          ? "text-black dark:text-white"
-                          : "text-black/70 dark:text-white/70"
+                        isActive ? "text-spotify-text" : "text-spotify-mute"
                       }
                     />
                     <span
-                      className={`font-medium text-sm font-plus-jakarta ${
-                        isActive
-                          ? "text-black dark:text-white"
-                          : "text-black/70 dark:text-white/70"
-                      }`}
+                      className={`text-sm font-medium ${isActive ? "text-spotify-text" : "text-spotify-mute"}`}
                     >
                       {item.name}
                     </span>
@@ -88,7 +82,7 @@ export default function Sidebar({ onClose, activeSection, onSectionChange }) {
                       size={16}
                       className={`transition-transform duration-200 ${
                         isExpanded ? "rotate-180" : ""
-                      } ${isActive ? "text-black dark:text-white" : "text-black/70 dark:text-white/70"}`}
+                      } ${isActive ? "text-spotify-text" : "text-spotify-mute"}`}
                     />
                   )}
                 </button>
@@ -99,11 +93,7 @@ export default function Sidebar({ onClose, activeSection, onSectionChange }) {
       </nav>
 
       {/* Utility Actions */}
-      <div className="p-4">
-        <div className="text-xs text-black/50 dark:text-white/50 font-plus-jakarta">
-          Michelin Playlist Manager
-        </div>
-      </div>
+      <div className="p-4 text-xs text-spotify-mute">Michelin Playlist Manager</div>
     </div>
   );
 }

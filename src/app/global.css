@@ -6,4 +6,26 @@
   input, textarea, select, button {
     @apply outline-none focus:outline-none;
   }
+  html, body {
+    background-color: theme('colors.spotify.black');
+    color: theme('colors.spotify.text');
+  }
+}
+
+/* Subtle scrollbar styling for dark UI */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: #181818;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #2A2A2A;
+  border-radius: 10px;
+  border: 2px solid #181818;
+}
+* {
+  scrollbar-color: #2A2A2A #181818;
+  scrollbar-width: thin;
 }
