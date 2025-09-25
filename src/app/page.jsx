@@ -26,7 +26,8 @@ export default function PlaylistManager() {
   };
 
   return (
-    <div className="flex h-screen bg-[#F3F3F3] dark:bg-[#0A0A0A]">
+    <div className="dark bg-spotify-black text-spotify-text min-h-screen">
+      <div className="flex h-screen">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -59,11 +60,12 @@ export default function PlaylistManager() {
         />
 
         {/* Content area below header - Scrollable, contains main sections */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-spotify-black">
           <div className="p-4 md:p-8">
             {renderContent()}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
