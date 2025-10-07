@@ -3,9 +3,13 @@ import { BlockName, Prisma } from "@prisma/client";
 import csvToJson from "convert-csv-to-json";
 
 function getTracks(): Prisma.tracksCreateManyInput[] {
-  const dinnerTracks = csvToJson
+  // const dinnerTracks = csvToJson
+  //   .fieldDelimiter(",")
+  //   .getJsonFromCsv("temp/dinner.csv");
+
+  const dinnerv2Tracks = csvToJson
     .fieldDelimiter(",")
-    .getJsonFromCsv("temp/dinner.csv");
+    .getJsonFromCsv("temp/dinner_v2.csv");
 
   const lateTracks = csvToJson
     .fieldDelimiter(",")
@@ -15,7 +19,7 @@ function getTracks(): Prisma.tracksCreateManyInput[] {
     .fieldDelimiter(",")
     .getJsonFromCsv("temp/lunch.csv");
 
-  const dinnerTracksWithBlockName = dinnerTracks.map((track) => ({
+  const dinnerTracksWithBlockName = [...dinnerv2Tracks].map((track) => ({
     uri: track["Track URI"],
     name: track["Track Name"],
     album_name: track["Album Name"],

@@ -128,36 +128,6 @@ export async function generateBlock(
     // ---- BLOCK FILTERS (DB controls ranges) -----------------------------
     const banned = /(lo[-\s]?fi|chillhop|study|sleep|beats\s+to|drill|trap)/i;
 
-    const lateArtists = [
-      "rumbotumba",
-      "nicola cruz",
-      "chancha via circuito",
-      "khruangbin",
-      "bonobo",
-      "quantic",
-      "st germain",
-      "the cinematic orchestra",
-      "air",
-      "zero 7",
-      "fkj",
-      "tom misch",
-      "jordan rakei",
-    ];
-    const lateGenres = [
-      "latin",
-      "cumbia",
-      "bossa",
-      "bossa nova",
-      "mpb",
-      "andean",
-      "electro-latin",
-      "nu jazz",
-      "downtempo",
-      "lounge",
-      "soul",
-      "soultronic",
-    ];
-
     const pool: typeof candidateTracks = candidateTracks.filter((t) => {
       const name = (t.name || "").toLowerCase();
       const album = (t.album_name || "").toLowerCase();
@@ -168,7 +138,6 @@ export async function generateBlock(
       const speech = Number(t.speechiness ?? 0);
       const instr = Number(t.instrumentalness ?? 0);
       const pop = Number(t.popularity ?? 0);
-      const artistsStr = (t.artists || "").toLowerCase();
 
       if (blockName === "Dinner") {
         // Michelin: elegant/unobtrusive; DB handles BPM/Energy via Neon
