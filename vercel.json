@@ -6,9 +6,5 @@
     { "source": "/playlists", "destination": "/api/playlists" },
     { "source": "/play/(.*)", "destination": "/api/play/$1" },
     { "source": "/generate", "destination": "/api/generate" }
-  ],
-  "builds": [
-    { "src": "api/**/*.ts", "use": "@vercel/node", "config": { "includeFiles": ["api/**"] } },
-    { "src": "apps/web/**/*.ts", "use": "@vercel/node", "config": { "includeFiles": ["apps/web/**"] } }
   ]
 }

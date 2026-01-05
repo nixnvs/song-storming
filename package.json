@@ -2,6 +2,10 @@
   "name": "song-storming",
   "private": true,
   "type": "module",
+  "packageManager": "npm@10.2.4",
+  "engines": {
+    "node": ">=20.0.0 <21.0.0"
+  },
   "dependencies": {
     "hono": "^4.5.0",
     "@vercel/node": "^3.0.0"

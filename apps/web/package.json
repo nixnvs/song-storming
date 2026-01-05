@@ -2,6 +2,10 @@
 	"name": "web",
 	"private": true,
 	"type": "module",
+	"packageManager": "npm@10.2.4",
+	"engines": {
+		"node": ">=20.0.0 <21.0.0"
+	},
 	"scripts": {
 		"dev": "react-router dev",
 		"dev:api": "vercel dev --cwd . --port 3000",
