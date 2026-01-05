@@ -44,8 +44,9 @@ const app = new Hono();
 app.use('*', requestId());
 
 app.use('*', (c, next) => {
-  const requestId = c.get('requestId') as string;
-  return als.run({ requestId: requestId || '' }, () => next());
+  // @ts-ignore - requestId is set by requestId() middleware
+  const requestId: string = c.get('requestId') || '';
+  return als.run({ requestId }, () => next());
 });
 
 app.use(contextStorage());
