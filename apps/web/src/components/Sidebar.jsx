@@ -33,7 +33,7 @@ export default function Sidebar({ onClose, activeSection, onSectionChange }) {
   const navigationItems = [
     { name: "Service Start", icon: Play, hasSubmenu: false },
     { name: "Weekly Plan", icon: Calendar, hasSubmenu: false },
-    { name: "Catalog & Settings", icon: Database, hasSubmenu: true },
+    { name: "Catalog & Settings", icon: Database, hasSubmenu: false },
     { name: "History", icon: History, hasSubmenu: false },
   ];
 
