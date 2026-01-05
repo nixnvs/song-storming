@@ -113,6 +113,12 @@ export async function generateBlock(dateISO, blockName, options = {}) {
       };
     }
 
+    // Calculate average loudness from candidate tracks (for normalization)
+    const tracksWithLoudness = candidateTracks.filter(t => t.loudness != null);
+    const avgLoudness = tracksWithLoudness.length > 0
+      ? tracksWithLoudness.reduce((sum, t) => sum + t.loudness, 0) / tracksWithLoudness.length
+      : -12.0; // Default target loudness if no data
+
     // 4) Scoring: Calculate scores for each track
     const scoredTracks = candidateTracks.map((track) => {
       let score = 0;
@@ -140,6 +146,19 @@ export async function generateBlock(dateISO, blockName, options = {}) {
         score += 20; // Has energy but outside range (penalized)
       } else {
         score += 30; // No energy data (neutral)
+      }
+
+      // Loudness normalization bonus (if enabled and loudness data available)
+      if (rules.normalize_loudness && track.loudness != null) {
+        const loudnessDiff = Math.abs(track.loudness - avgLoudness);
+        // Prefer tracks with loudness close to average (within 2dB = good, within 4dB = ok)
+        if (loudnessDiff <= 2.0) {
+          score += 30; // Very close to average loudness
+        } else if (loudnessDiff <= 4.0) {
+          score += 15; // Acceptable loudness difference
+        } else {
+          score -= 10; // Penalize tracks with very different loudness
+        }
       }
 
       // Bonus for recently unused artists (inverse of usage count)
@@ -275,76 +294,86 @@ async function selectTracksWithArtistSeparation(
   return selected;
 }
 
-// 6) Energy curve algorithm: 20% intro low, 60% mid smooth lift, 20% outro warm
+// 6) Order tracks for consistent background music (no energy variations)
+// For restaurant background music, we maintain consistent energy throughout
 function buildEnergyCurve(tracks) {
   if (tracks.length === 0) return tracks;
 
-  // Sort tracks by energy (handle null values)
+  // Calculate average energy of all tracks to maintain consistency
   const tracksWithEnergy = tracks.map((t) => ({
     ...t,
     energyScore: t.energy || 0.3, // Default energy if null
   }));
 
-  const sortedByEnergy = [...tracksWithEnergy].sort(
-    (a, b) => a.energyScore - b.energyScore,
-  );
+  const avgEnergy = tracksWithEnergy.reduce((sum, t) => sum + t.energyScore, 0) / tracksWithEnergy.length;
 
-  const totalTracks = tracks.length;
-  const introCount = Math.max(1, Math.floor(totalTracks * 0.2));
-  const outroCount = Math.max(1, Math.floor(totalTracks * 0.2));
-  const midCount = totalTracks - introCount - outroCount;
+  // Sort tracks by how close they are to the average energy
+  // This ensures consistent energy throughout the playlist
+  const sortedByEnergyProximity = [...tracksWithEnergy].sort((a, b) => {
+    const diffA = Math.abs(a.energyScore - avgEnergy);
+    const diffB = Math.abs(b.energyScore - avgEnergy);
+    return diffA - diffB; // Closer to average first
+  });
 
-  // Divide energy levels into groups
-  const lowEnergyTracks = sortedByEnergy.slice(
-    0,
-    Math.floor(sortedByEnergy.length * 0.4),
-  );
-  const midEnergyTracks = sortedByEnergy.slice(
-    Math.floor(sortedByEnergy.length * 0.3),
-    Math.floor(sortedByEnergy.length * 0.7),
-  );
-  const highEnergyTracks = sortedByEnergy.slice(
-    Math.floor(sortedByEnergy.length * 0.6),
-  );
+  // Also consider loudness if available for consistent volume
+  const sortedByLoudness = [...sortedByEnergyProximity].sort((a, b) => {
+    if (a.loudness == null && b.loudness == null) return 0;
+    if (a.loudness == null) return 1;
+    if (b.loudness == null) return -1;
+    return Math.abs(a.loudness) - Math.abs(b.loudness); // Prefer similar loudness
+  });
 
+  // Shuffle slightly to avoid being too predictable, but keep energy consistent
+  // We'll do a gentle shuffle that maintains energy consistency
   const orderedPlaylist = [];
   const used = new Set();
 
-  // Helper to pick track from pool
-  const pickTrack = (pool) => {
+  // Group tracks by energy proximity (within 0.1 of average)
+  const energyGroups = {
+    close: sortedByLoudness.filter(t => Math.abs(t.energyScore - avgEnergy) <= 0.1),
+    medium: sortedByLoudness.filter(t => Math.abs(t.energyScore - avgEnergy) > 0.1 && Math.abs(t.energyScore - avgEnergy) <= 0.2),
+    far: sortedByLoudness.filter(t => Math.abs(t.energyScore - avgEnergy) > 0.2)
+  };
+
+  // Prefer tracks close to average energy, with gentle randomization
+  const pickTrack = (groups) => {
+    // Try close group first (70% chance), then medium (25%), then far (5%)
+    const rand = Math.random();
+    let pool = [];
+    
+    if (rand < 0.7 && groups.close.length > 0) {
+      pool = groups.close;
+    } else if (rand < 0.95 && groups.medium.length > 0) {
+      pool = groups.medium;
+    } else {
+      pool = groups.far;
+    }
+
     const available = pool.filter((t) => !used.has(t.id));
-    if (available.length === 0) return null;
+    if (available.length === 0) {
+      // Fallback to any available track
+      const allAvailable = sortedByLoudness.filter((t) => !used.has(t.id));
+      if (allAvailable.length === 0) return null;
+      const track = allAvailable[Math.floor(Math.random() * allAvailable.length)];
+      used.add(track.id);
+      return track;
+    }
+    
     const track = available[Math.floor(Math.random() * available.length)];
     used.add(track.id);
     return track;
   };
 
-  // 20% intro: lower energy
-  for (let i = 0; i < introCount; i++) {
-    const track = pickTrack([...lowEnergyTracks, ...midEnergyTracks]);
-    if (track) orderedPlaylist.push(track);
-  }
-
-  // 60% mid: smooth energy lift (mid to high)
-  for (let i = 0; i < midCount; i++) {
-    const progress = i / midCount;
-    const pool =
-      progress < 0.5
-        ? [...midEnergyTracks, ...highEnergyTracks]
-        : [...highEnergyTracks, ...midEnergyTracks];
-
-    const track = pickTrack(pool);
-    if (track) orderedPlaylist.push(track);
-  }
-
-  // 20% outro: warm/calming energy
-  for (let i = 0; i < outroCount; i++) {
-    const track = pickTrack([...lowEnergyTracks, ...midEnergyTracks]);
-    if (track) orderedPlaylist.push(track);
+  // Fill playlist maintaining consistent energy
+  for (let i = 0; i < tracks.length; i++) {
+    const track = pickTrack(energyGroups);
+    if (track) {
+      orderedPlaylist.push(track);
+    }
   }
 
   // Add any remaining tracks
-  const remaining = tracksWithEnergy.filter((t) => !used.has(t.id));
+  const remaining = sortedByLoudness.filter((t) => !used.has(t.id));
   orderedPlaylist.push(...remaining);
 
   return orderedPlaylist;
