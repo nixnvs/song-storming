@@ -2,7 +2,8 @@ import { Upload, Loader } from "lucide-react";
 
 const importTypes = [
   { id: "artist", label: "Artist Name", placeholder: "Enter artist name..." },
-  { id: "playlist", label: "Playlist URL", placeholder: "https://open.spotify.com/playlist/..." },
+  { id: "playlist_url", label: "Playlist URL", placeholder: "https://open.spotify.com/playlist/... or spotify:playlist:..." },
+  { id: "track_uris", label: "Track URIs", placeholder: "Paste track URIs (one per line or comma-separated)" },
   { id: "csv", label: "CSV Upload", placeholder: "Select CSV file..." },
 ];
 
@@ -22,7 +23,7 @@ export function ImportMusicTab({
         Import Music to Catalog
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {importTypes.map((type) => (
           <button
             key={type.id}
@@ -65,6 +66,22 @@ export function ImportMusicTab({
                 {uploadFile ? uploadFile.name : "Choose CSV file"}
               </span>
             </label>
+          </div>
+        ) : importType === "track_uris" ? (
+          <div>
+            <label className="block text-sm font-medium text-black dark:text-white mb-2 font-opensans">
+              Track URIs (one per line or comma-separated)
+            </label>
+            <textarea
+              value={importValue}
+              onChange={(e) => setImportValue(e.target.value)}
+              placeholder="spotify:track:5eksCJ1r2T1kNIZPTHBGG2&#10;spotify:track:7Ma65Rw2NITbTtYTwsbtWe&#10;spotify:track:6UDWsYMH2MwgOxOS9sbnwC&#10;..."
+              rows={8}
+              className="w-full px-4 py-2 border border-[#E6E6E6] dark:border-[#333333] rounded-lg bg-white dark:bg-[#1E1E1E] text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+            />
+            <p className="mt-2 text-xs text-[#6F6F6F] dark:text-[#AAAAAA] font-opensans">
+              Paste Spotify track URIs (spotify:track:...) or URLs. One per line or comma-separated.
+            </p>
           </div>
         ) : (
           <div>

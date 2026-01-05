@@ -109,6 +109,36 @@ export function useCatalogSettings() {
         } else {
           showToast(result.error || "Failed to import", "error");
         }
+      } else if (importType === "track_uris") {
+        // Parse track URIs from textarea (support both newline and comma-separated)
+        const trackUris = importValue
+          .split(/[,\n]/)
+          .map(uri => uri.trim())
+          .filter(uri => uri.length > 0 && (uri.startsWith('spotify:track:') || uri.includes('open.spotify.com/track/')));
+
+        if (trackUris.length === 0) {
+          showToast("Please enter valid Spotify track URIs", "error");
+          return;
+        }
+
+        const response = await fetch("/api/catalog/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            type: "track_uris", 
+            value: `imported_${Date.now()}`,
+            track_uris: trackUris
+          }),
+        });
+        const result = await response.json();
+
+        if (result.tracks_imported !== undefined) {
+          showToast(`Successfully imported ${result.tracks_imported} tracks!`, "success");
+          setImportValue("");
+          await loadCatalogStats();
+        } else {
+          showToast(result.error || "Failed to import", "error");
+        }
       } else {
         const response = await fetch("/api/catalog/import", {
           method: "POST",
@@ -117,8 +147,8 @@ export function useCatalogSettings() {
         });
         const result = await response.json();
 
-        if (result.success) {
-          showToast(`Successfully imported ${result.imported_count} tracks!`, "success");
+        if (result.tracks_imported !== undefined || result.success) {
+          showToast(`Successfully imported ${result.tracks_imported || result.imported_count || 0} tracks!`, "success");
           setImportValue("");
           await loadCatalogStats();
         } else {
