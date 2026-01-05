@@ -44,8 +44,8 @@ const app = new Hono();
 app.use('*', requestId());
 
 app.use('*', (c, next) => {
-  const requestId = c.get('requestId');
-  return als.run({ requestId }, () => next());
+  const requestId = c.get('requestId') as string;
+  return als.run({ requestId: requestId || '' }, () => next());
 });
 
 app.use(contextStorage());

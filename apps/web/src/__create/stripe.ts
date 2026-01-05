@@ -1,5 +1,6 @@
 import lodash from 'lodash';
 const { partial } = lodash;
+// @ts-ignore - npm: alias resolved at build time
 import regularStripe from 'npm:stripe';
 import type Stripe from 'stripe';
 

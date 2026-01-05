@@ -1,4 +1,5 @@
 import fg from 'fast-glob';
+// @ts-ignore - Generated type file
 import type { Route } from './+types/not-found';
 import { useNavigate } from 'react-router';
 import { useCallback, useEffect, useState } from 'react';
