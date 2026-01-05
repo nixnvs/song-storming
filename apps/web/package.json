@@ -5,7 +5,9 @@
 	"scripts": {
 		"dev": "react-router dev",
 		"dev:api": "vercel dev --cwd . --port 3000",
-		"typecheck": "react-router typegen && tsc --noEmit"
+		"typecheck": "react-router typegen && tsc --noEmit",
+		"build": "react-router build",
+		"start": "react-router serve"
 	},
 	"dependencies": {
         "hono": "^4.5.0",
