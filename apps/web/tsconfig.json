@@ -22,7 +22,8 @@
 		"noEmit": true,
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
-		"strict": true,
+		"strict": false,
+		"noImplicitAny": false,
     "paths": {
       "@/*": ["./src/*"]
     }

@@ -1,0 +1,13 @@
+{
+  "name": "song-storming",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "hono": "^4.5.0",
+    "@vercel/node": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5.8.3"
+  }
+}

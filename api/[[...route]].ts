@@ -1,7 +1,7 @@
 // Root-level catch-all API route to avoid rootDirectory routing issues
 import { Hono } from 'hono'
 import { handle } from 'hono/vercel'
-import { app as inner } from '../apps/web/server-app.js'
+import { app as inner } from '../apps/web/api/_app.js'
 
 const app = new Hono()
   .route('/api', inner)
