@@ -94,6 +94,9 @@
 		"vitest": "^3.2.4"
 	},
 	"overrides": {
-		"next-themes": "^0.3.0"
+		"next-themes": "^0.3.0",
+		"react-router-hono-server": {
+			"@types/react": "^18.3.1"
+		}
 	}
 }
