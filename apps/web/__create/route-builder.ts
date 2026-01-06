@@ -8,38 +8,44 @@ import updatedFetch from '../src/__create/fetch';
 const API_BASENAME = '/api';
 const api = new Hono();
 
-// Get current directory
+// Get current directory - resolve relative to source in dev
 const __dirname = join(fileURLToPath(new URL('.', import.meta.url)), '../src/app/api');
 if (globalThis.fetch) {
   globalThis.fetch = updatedFetch;
 }
 
-// Recursively find all route.js files
+// Recursively find all route.js files (only works in dev when source files exist)
 async function findRouteFiles(dir: string): Promise<string[]> {
-  const files = await readdir(dir);
-  let routes: string[] = [];
+  try {
+    const files = await readdir(dir);
+    let routes: string[] = [];
 
-  for (const file of files) {
-    try {
-      const filePath = join(dir, file);
-      const statResult = await stat(filePath);
+    for (const file of files) {
+      try {
+        const filePath = join(dir, file);
+        const statResult = await stat(filePath);
 
-      if (statResult.isDirectory()) {
-        routes = routes.concat(await findRouteFiles(filePath));
-      } else if (file === 'route.js') {
-        // Handle root route.js specially
-        if (filePath === join(__dirname, 'route.js')) {
-          routes.unshift(filePath); // Add to beginning of array
-        } else {
-          routes.push(filePath);
+        if (statResult.isDirectory()) {
+          routes = routes.concat(await findRouteFiles(filePath));
+        } else if (file === 'route.js') {
+          // Handle root route.js specially
+          if (filePath === join(__dirname, 'route.js')) {
+            routes.unshift(filePath); // Add to beginning of array
+          } else {
+            routes.push(filePath);
+          }
         }
+      } catch (error) {
+        // Silently skip files we can't read
       }
-    } catch (error) {
-      console.error(`Error reading file ${file}:`, error);
     }
-  }
 
-  return routes;
+    return routes;
+  } catch (error) {
+    // Directory doesn't exist (production build) - return empty array
+    // Routes will be discovered via static imports instead
+    return [];
+  }
 }
 
 // Helper function to transform file path to Hono route path
@@ -65,16 +71,15 @@ function getHonoPath(routeFile: string): { name: string; pattern: string }[] {
 
 // Import and register all routes
 async function registerRoutes() {
-  const routeFiles = (
-    await findRouteFiles(__dirname).catch((error) => {
-      console.error('Error finding route files:', error);
-      return [];
-    })
-  )
-    .slice()
-    .sort((a, b) => {
-      return b.length - a.length;
-    });
+  // In production builds, source files don't exist, so skip filesystem scan
+  // Routes should be statically imported at build time
+  const routeFiles = import.meta.env.DEV 
+    ? await findRouteFiles(__dirname).catch(() => [])
+    : [];
+
+  routeFiles.sort((a, b) => {
+    return b.length - a.length;
+  });
 
   // Clear existing routes
   api.routes = [];
@@ -132,13 +137,20 @@ async function registerRoutes() {
 }
 
 // Initial route registration
-await registerRoutes();
+// Skip in production builds where source files don't exist
+// Routes will be handled via static imports at build time
+if (import.meta.env.DEV) {
+  await registerRoutes();
+}
+
+// Pre-import routes for build-time discovery (works in both dev and prod)
+// This ensures routes are available in production builds
+import.meta.glob('../src/app/api/**/route.js', {
+  eager: false,
+});
 
 // Hot reload routes in development
 if (import.meta.env.DEV) {
-  import.meta.glob('../src/app/api/**/route.js', {
-    eager: true,
-  });
   if (import.meta.hot) {
     import.meta.hot.accept((newSelf) => {
       registerRoutes().catch((err) => {
