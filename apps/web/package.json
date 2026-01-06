@@ -10,7 +10,7 @@
 		"dev": "react-router dev",
 		"dev:api": "vercel dev --cwd . --port 3000",
 		"typecheck": "react-router typegen && tsc --noEmit",
-		"build": "npx react-router build",
+		"build": "react-router build",
 		"start": "react-router serve"
 	},
 	"dependencies": {
