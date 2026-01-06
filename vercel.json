@@ -1,9 +1,7 @@
 {
-  "version": 2,
-  "functions": {
-    "api/[[...route]].ts": {
-      "runtime": "@vercel/node@2.0.0",
-      "includeFiles": "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node"
-    }
-  }
+  "outputDirectory": "apps/web/build/client",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/" }
+  ]
 }
