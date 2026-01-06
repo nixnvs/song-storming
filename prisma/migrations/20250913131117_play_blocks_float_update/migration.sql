@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "public"."play_blocks" ALTER COLUMN "energy_min" SET DATA TYPE DOUBLE PRECISION,
+ALTER COLUMN "energy_max" SET DATA TYPE DOUBLE PRECISION;

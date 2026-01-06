@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BlockName {
+  DINNER
+  LUNCH
+  LATE
+}
+
+model play_blocks {
+  id                  Int      @id @default(autoincrement())
+  guid                String   @unique @default(uuid()) @db.Uuid
+  name                String
+  target_min          Int?
+  target_max          Int?
+  bpm_min             Int?
+  bpm_max             Int?
+  energy_min          Decimal?
+  energy_max          Decimal?
+  prefer_instrumental Boolean?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  start_time          String?
+  end_time            String?
+
+  rotation_rules   rotation_rules[]
+  generated_items  generated_items[]
+  user_play_blocks user_play_blocks[]
+  // Todo: Indexing if needed
+}
+
+model rotation_rules {
+  id                  Int          @id @default(autoincrement())
+  guid                String       @unique @default(uuid()) @db.Uuid
+  track_cooldown_days Int
+  artist_cooldown_min Int
+  exclude_explicit    Boolean
+  normalize_loudness  Boolean
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+  play_blocks         play_blocks? @relation(fields: [play_blocksId], references: [id])
+  play_blocksId       Int?
+}
+
+model tracks {
+  id           Int       @id @default(autoincrement())
+  guid         String    @unique @default(uuid()) @db.Uuid
+  uri          String
+  name         String
+  album_name   String
+  artists      String
+  release_date String
+  duration_ms  Decimal
+  popularity   Decimal?
+  explicit     Boolean
+  added_by     String?
+  added_at     DateTime?
+  genres       String?
+  record_label String?
+
+  // Audio features (Spotify-style)
+  danceability     Decimal?
+  energy           Decimal?
+  key              Decimal?
+  loudness         Decimal?
+  mode             Decimal?
+  speechiness      Decimal?
+  acousticness     Decimal?
+  instrumentalness Decimal?
+  liveness         Decimal?
+  valence          Decimal?
+  tempo            Decimal?
+  time_signature   Decimal?
+  block_name       BlockName?
+
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+  generated_items generated_items[]
+}
+
+model generated_items {
+  id          Int         @id @default(autoincrement())
+  guid        String      @unique @default(uuid()) @db.Uuid
+  track_id    Int
+  tracks      tracks      @relation(fields: [track_id], references: [id])
+  artist      String
+  block_id    Int
+  play_blocks play_blocks @relation(fields: [block_id], references: [id])
+  user_id     Int
+  users       users       @relation(fields: [user_id], references: [id])
+  position    Int
+  date_iso    DateTime
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  @@index([date_iso, block_id])
+}
+
+model users {
+  id               Int                @id @default(autoincrement())
+  guid             String             @unique @default(uuid()) @db.Uuid
+  email            String             @unique
+  spotify_id       String             @unique
+  name             String?
+  image            String?
+  created_at       DateTime           @default(now())
+  updated_at       DateTime           @updatedAt
+  user_play_blocks user_play_blocks[]
+  generated_items  generated_items[]
+}
+
+model user_play_blocks {
+  id            Int         @id @default(autoincrement())
+  guid          String      @unique @default(uuid()) @db.Uuid
+  user_id       Int
+  user          users       @relation(fields: [user_id], references: [id])
+  playlist_url  String?
+  play_block_id Int
+  play_blocks   play_blocks @relation(fields: [play_block_id], references: [id])
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+}

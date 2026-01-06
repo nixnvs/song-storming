@@ -1,11 +1,9 @@
 {
-  "rewrites": [
-    { "source": "/auth/(.*)", "destination": "/api/auth/$1" },
-    { "source": "/me", "destination": "/api/me" },
-    { "source": "/devices", "destination": "/api/devices" },
-    { "source": "/playlists", "destination": "/api/playlists" },
-    { "source": "/play/(.*)", "destination": "/api/play/$1" },
-    { "source": "/generate", "destination": "/api/generate" }
-  ],
-  "installCommand": "npm ci --prefer-offline --no-audit --no-fund && cd apps/web && npm install --prefer-offline --no-audit --no-fund"
+  "version": 2,
+  "functions": {
+    "api/[[...route]].ts": {
+      "runtime": "@vercel/node@2.0.0",
+      "includeFiles": "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node"
+    }
+  }
 }
