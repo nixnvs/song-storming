@@ -136,11 +136,13 @@ async function registerRoutes() {
   }
 }
 
-// Initial route registration
-// Skip in production builds where source files don't exist
-// Routes will be handled via static imports at build time
+// Initial route registration - only in dev mode and non-blocking
+// In production, routes are statically imported at build time
 if (import.meta.env.DEV) {
-  await registerRoutes();
+  // Don't await - let it run in background to avoid blocking module load
+  registerRoutes().catch(() => {
+    // Silently fail - routes will be registered on hot reload
+  });
 }
 
 // Pre-import routes for build-time discovery (works in both dev and prod)
