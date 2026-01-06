@@ -7,5 +7,5 @@
     { "source": "/play/(.*)", "destination": "/api/play/$1" },
     { "source": "/generate", "destination": "/api/generate" }
   ],
-  "installCommand": "npm ci --prefer-offline --no-audit --no-fund && cd apps/web && npm ci --prefer-offline --no-audit --no-fund"
+  "installCommand": "npm ci --prefer-offline --no-audit --no-fund && cd apps/web && npm install --prefer-offline --no-audit --no-fund"
 }
